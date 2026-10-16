@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Synchromatica — Трекер прогресса</title>
+<style>
+  :root{
+    --bg:#07100b;
+    --bg2:#0b1a12;
+    --card:#0e2016;
+    --card2:#12301f;
+    --line:#1b3d2a;
+    --txt:#e8f5ee;
+    --muted:#7da18e;
+    --acc:#2ecc71;
+    --acc2:#34d399;
+    --warn:#f0a500;
+    --danger:#ff5566;
+    --radius:16px;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #12301f 0%, var(--bg) 55%);
+    background-color:var(--bg);
+    color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+  }
+  #app{max-width:520px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 110px)}
+  .top{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .top h1{font-size:20px;font-weight:700;letter-spacing:-.3px;flex:1}
+  .top .sub{font-size:12px;color:var(--muted);font-weight:500}
+  .iconbtn{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:12px;width:40px;height:40px;display:grid;place-items:center;font-size:17px;cursor:pointer}
+  .iconbtn:active{transform:scale(.94)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .card h2{font-size:16px;font-weight:700;margin-bottom:4px}
+  .card p{font-size:13px;color:var(--muted);line-height:1.5}
+
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+
+  .btn{display:block;width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#03170c;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.2px}
+  .btn:active{transform:scale(.985)}
+  .btn.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+  .btn.warn{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+
+  .row{display:flex;align-items:center;justify-content:space-between;padding:13px 4px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:none}
+  .row .name{font-size:15px;font-weight:600}
+  .row .meta{font-size:12px;color:var(--muted);margin-top:3px}
+  .row .val{font-size:15px;font-weight:700;color:var(--acc2)}
+
+  .exblk{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .exblk.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+  .exblk .en{font-size:17px;font-weight:700}
+  .exblk .einfo{font-size:12px;color:var(--muted);margin-top:3px}
+  .pr{background:var(--card2);border-radius:10px;padding:8px 10px;font-size:12.5px;color:#badded;display:flex;gap:6px;align-items:center;margin-bottom:12px;line-height:1.4}
+  .pr b{color:var(--acc2)}
+
+  .setrow{display:grid;grid-template-columns:24px 1fr 1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+  .setrow .si{font-size:12px;color:var(--muted);text-align:center;font-weight:600}
+  .inp{background:#0a1810;border:1px solid var(--line);border-radius:10px;padding:9px 8px;color:var(--txt);font-size:14px;font-weight:600;text-align:center;width:100%}
+  .inp:focus{outline:none;border-color:var(--acc)}
+  .inp::-webkit-outer-spin-button,.inp::-webkit-inner-spin-button{-webkit-appearance:none}
+
+  .chipbtn{background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:4px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
+  .chipbtn.on{background:var(--acc);color:#03170c;border-color:var(--acc);font-weight:700}
+
+  .addset{width:100%;padding:11px;border:1px dashed var(--line);background:transparent;color:var(--acc2);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer}
+
+  /* Rest timer bar */
+  #rest{position:fixed;left:0;right:0;bottom:0;z-index:40;max-width:520px;margin:0 auto;
+    background:var(--card2);border-top:1px solid var(--line);padding:12px 16px calc(env(safe-area-inset-bottom)+12px);
+    transform:translateY(110%);transition:transform .25s ease;backdrop-filter:blur(8px)}
+  #rest.show{transform:translateY(0)}
+  #rest .track{height:6px;background:#0a1810;border-radius:99px;overflow:hidden;margin-bottom:10px}
+  #rest .fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));width:100%}
+  #rest .rtrow{display:flex;align-items:center;gap:10px}
+  #rest .time{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;width:86px}
+  #rest .chips{display:flex;gap:6px;flex:1}
+
+  .bottombar{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:520px;margin:0 auto;
+    padding:12px 16px calc(env(safe-area-inset-bottom)+12px);
+    background:linear-gradient(0deg,var(--bg) 55%,transparent);display:flex;gap:10px}
+  .bottombar .btn{flex:1}
+
+  .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top)+14px);transform:translateX(-50%) translateY(-120%);
+    background:var(--card2);border:1px solid var(--line);color:var(--txt);padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;z-index:60;transition:transform .25s ease;box-shadow:var(--shadow);max-width:90%}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  .modal{position:fixed;inset:0;z-index:50;background:rgba(4,10,7,.7);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center}
+  .modal.show{display:flex}
+  .modal .sheet{width:100%;max-width:520px;background:var(--bg2);border:1px solid var(--line);border-radius:22px 22px 0 0;padding:20px 16px calc(env(safe-area-inset-bottom)+20px)}
+  .sheet h3{font-size:18px;font-weight:700;margin-bottom:16px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .field input{background:#0a1810;border:1px solid var(--line);border-radius:12px;padding:13px;color:var(--txt);font-size:15px;width:100%}
+  .field input:focus{outline:none;border-color:var(--acc)}
+
+  .statrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .stat .v{font-size:20px;font-weight:800;margin-top:4px}
+  .stat .d{font-size:12px;margin-top:2px}
+  .up{color:var(--acc2)} .dn{color:var(--danger)}
+
+  .history .item{display:flex;justify-content:space-between;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line)}
+  .history .item:last-child{border-bottom:none}
+  .history .date{font-size:14px;font-weight:600}
+  .history .sets{font-size:12px;color:var(--muted);margin-top:2px}
+
+  .empty{text-align:center;color:var(--muted);padding:36px 10px}
+  .empty .big{font-size:34px;margin-bottom:10px}
+  .empty p{font-size:14px;line-height:1.5}
+  ::placeholder{color:#3c5c4b}
+  .emptysmall{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="rest">
+  <div class="track"><div class="fill" id="restFill"></div></div>
+  <div class="rtrow">
+    <div class="time" id="restTime">1:30</div>
+    <div class="chips" id="restChips"></div>
+  </div>
+</div>
+
+<div class="bottombar" id="bottomBar"></div>
+<div id="toast" class="toast"></div>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+
+<script>
+/* =========================================================
+   Synchromatica — Fitness Mini App (single-file)
+   Telegram Mini App: CloudStorage + HapticFeedback, graceful fallback.
+   Data model: programs, exercises, workout history, progressive tracking.
+   ========================================================= */
+'use strict';
+
+/* ---------- Telegram helpers ---------- */
+const WTA = (window.Telegram && window.Telegram.WebApp) || null;
+if (WTA) { try { WTA.ready(); WTA.expand(); WTA.setHeaderColor && WTA.setHeaderColor('#07100b'); } catch(e){} }
+
+const Haptic = {
+  ok(){ if(WTA && WTA.HapticFeedback){ try{WTA.HapticFeedback.notificationOccurred('success');}catch(e){} } },
+  warn(){ if(WTA && WTA.HapticFeedback){ try{WTA.HapticFeedback.notificationOccurred('warning');}catch(e){} } },
+  tick(){ if(WTA && WTA.HapticFeedback){ try{WTA.HapticFeedback.impactOccurred('light');}catch(e){} } },
+  err(){ if(WTA && WTA.HapticFeedback){ try{WTA.HapticFeedback.notificationOccurred('error');}catch(e){} } }
+};
+
+/* ---------- Storage wrapper: CloudStorage -> localStorage ---------- */
+const Storage = {
+  ok: !!(WTA && WTA.CloudStorage),
+  get(key){
+    return new Promise((res)=>{
+      if (this.ok){ try{ WTA.CloudStorage.getItem(key,(e,v)=>{ res(e?null:v); }); }catch(err){ res(this.fb(key)); } }
+      else res(this.fb(key));
+    });
+  },
+  set(key,val){
+    const sval = typeof val==='string'?val:JSON.stringify(val);
+    if (this.ok){ try{ WTA.CloudStorage.setItem(key,sval,()=>{}); }catch(e){} }
+    try{ localStorage.setItem('sa_'+key, sval); }catch(e){}
+  },
+  fb(key){ try{ return localStorage.getItem('sa_'+key); }catch(e){ return null; } }
+};
+
+/* ---------- default program ---------- */
+const DEFAULT_PROGRAM = {
+  id:'ppl',
+  name:'Сплит на массу (PPL)',
+  exercises: [
+    {id:'bench',   name:'Жим лёжа'},
+    {id:'row',     name:'Тяга в наклоне'},
+    {id:'ohp',     name:'Жим стоя'},
+    {id:'squat',   name:'Приседания'},
+    {id:'dead',    name:'Становая тяга'},
+    {id:'curl',    name:'Подъём на бицепс'}
+  ]
+};
+
+function seed(){
+  return {
+    programs: [DEFAULT_PROGRAM],
+    history: [],                 // [{id, programId, date, totalKg, entries:{exId:[{w,r}]}}]
+    current: null                // {programId, startedAt, entries:{exId:[{w,r,done}]}}
+  };
+}
+
+/* ---------- state ---------- */
+let state = load() || seed();
+function persist(){ Storage.set('sa_fit_v1', JSON.stringify(state)); }
+function load(){ return null; /* real load below, async */ }
+
+let uid=1;
+function nid(){ return 'id'+(uid++); }
+
+/* ---------- routing ---------- */
+const app=document.getElementById('app');
+const bottomBar=document.getElementById('bottomBar');
+const modal=document.getElementById('modal');
+const sheet=document.getElementById('sheet');
+const toastEl=document.getElementById('toast');
+
+let toastT;
+function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove('show'),2600); }
+
+let curView='home';
+
+function htag(t,c){ const e=document.createElement(t); if(c) e.className=c; return e; }
+
+/* ---------- Views ---------- */
+function renderHome(){
+  const prog = state.programs[0];
+  const active = state.current;
+  const stats = computeStats();
+  app.innerHTML='';
+  const top=htag('div','top');
+  top.innerHTML='<div class="brand"><div class="dot"></div></div><h1>Фитнес</h1><span class="sub">прогресс нагрузок</span>';
+  const g=htag('button','iconbtn'); g.innerHTML='⚙'; g.onclick=()=>openProgramEditor(prog.id); top.appendChild(g);
+  app.appendChild(top);
+
+  if(active){
+    const c=htag('div','card');
+    c.innerHTML=`<h2>Тренировка в progress</h2><p>Сессия начата — продолжаем или завершаем и сохраняем.</p>`;
+    const b=htag('button','btn'); b.style.marginTop='14px'; b.textContent='Продолжить тренировку →'; b.onclick=()=>goto('workout');
+    c.appendChild(b); app.appendChild(c);
+  }
+
+  if(stats){
+    const sr=htag('div','statrow');
+    const tv=htag('div','stat'); tv.innerHTML=`<div class="k">Тоннаж за 4 нед</div><div class="v">${fmtNum(stats.tonnage)}</div><div class="d">кг</div>`;
+    const pw=htag('div','stat'); pw.innerHTML=`<div class="k">Трен./нед</div><div class="v">${stats.perWeek}</div><div class="d">последние 4 нед</div>`;
+    sr.append(tv,pw); app.appendChild(sr);
+  }
+
+  const c=htag('div','card');
+  c.innerHTML=`<div class="brand"><div class="dot"></div></div><h2>${esc(prog.name)}</h2><p>${prog.exercises.length} упражнений · сравниваем веса с прошлым разом и подсказываем, что пробивать.</p>`;
+  app.appendChild(c);
+
+  const start=htag('button','btn'); start.style.marginTop='4px'; start.textContent='Начать тренировку'; start.onclick=()=>startWorkout();
+  app.appendChild(start);
+
+  // history
+  const hist=historyFor(prog.id).slice(-5).reverse();
+  const hc=htag('div','card');
+  hc.innerHTML='<h2>История</h2>';
+  if(hist.length===0){ hc.innerHTML+='<div class="emptysmall" style="margin-top:10px">Пока пусто. Первая тренировка создаст базу для сравнения.</div>'; }
+  else{
+    const wrap=htag('div','history');
+    hist.forEach(s=>{
+      const d=htag('div','item');
+      const dt=htag('div'); dt.innerHTML=`<div class="date">${fmtDate(s.date)}</div><div class="sets">${countSets(s)} подходов · ${s.exercises} упр.</div>`;
+      const v=htag('div','val'); v.textContent=fmtNum(s.totalKg)+' кг';
+      d.append(dt,v); wrap.appendChild(d);
+    });
+    hc.appendChild(wrap);
+  }
+  app.appendChild(hc);
+
+  bottomBar.innerHTML='';
+  const edit=htag('button','btn ghost'); edit.textContent='Упражнения'; edit.onclick=()=>openProgramEditor(prog.id);
+  const h=htag('button','btn ghost'); h.textContent='История'; h.onclick=()=>goto('history');
+  bottomBar.append(edit,h);
+}
+
+async function startWorkout(){
+  const prog=state.programs[0];
+  if(!prog || prog.exercises.length===0){ toast('Добавьте хотя бы одно упражнение'); return; }
+  state.current={ programId:prog.id, startedAt:Date.now(), entries:{} };
+  prog.exercises.forEach(e=>{ state.current.entries[e.id]=[]; });
+  persist(); goto('workout');
+}
+
+function renderWorkout(){
+  const c=state.current; if(!c){ goto('home'); return; }
+  const prog=state.programs.find(p=>p.id===c.programId)||state.programs[0];
+  const prev=previousSession(prog.id, c.startedAt);
+  const pr={}; // exerciseId -> top set previous
+  if(prev){ prev.entries && Object.keys(prev.entries).forEach(eid=>{
+    const sets=(prev.entries[eid]||[]);
+    if(sets.length) pr[eid]= sets.reduce((a,s)=>(s.w>a.w?s:a), {w:0,r:0});
+  }); }
+
+  app.innerHTML='';
+  const top=htag('div','top');
+  top.innerHTML=`<div class="brand"><div class="dot"></div></div><h1>${esc(prog.name)}</h1><button class="iconbtn" id="finish">✓</button>`;
+  app.appendChild(top);
+
+  const t=htag('div'); const tt=htag('button','chipbtn'); tt.textContent='Завершить и сохранить'; tt.style.width='100%'; tt.style.marginBottom='14px'; tt.onclick=finishWorkout; t.appendChild(tt); app.appendChild(t);
+
+  prog.exercises.forEach(ex=>{
+    const sets=c.entries[ex.id]||[];
+    const blk=htag('div','exblk');
+    const hd=htag('div','exblk.hd');
+    const l=htag('div'); l.innerHTML=`<div class="en">${esc(ex.name)}</div><div class="einfo">подходов: <b>${sets.length}</b></div>`;
+    hd.appendChild(l);
+    const del=htag('button','iconbtn'); del.innerHTML='✕'; del.onclick=()=>removeExercise(c,ex.id); hd.appendChild(del);
+    blk.appendChild(hd);
+
+    const pitem=pr[ex.id];
+    if(pitem){
+      const p=htag('div','pr');
+      p.innerHTML=`Прошлый раз: <b>${pitem.w} кг × ${pitem.r}</b> — пробивай здесь, чтобы росло`;
+      blk.appendChild(p);
+    }
+
+    const list=htag('div');
+    sets.forEach((s,i)=>{ list.appendChild(setRow(c,ex.id,i,s,pitem)); });
+    blk.appendChild(list);
+
+    const add=htag('button','addset'); add.textContent='+ Добавить подход'; add.onclick=()=>{ Haptic.tick(); addSet(c,ex.id); };
+    blk.appendChild(add);
+    app.appendChild(blk);
+  });
+
+  bottomBar.innerHTML='';
+  const save=htag('button','btn'); save.textContent='Завершить и сохранить'; save.onclick=finishWorkout;
+  bottomBar.appendChild(save);
+}
+
+function setRow(c,exId,i,s,pitem){
+  const row=htag('div','setrow');
+  const idx=htag('div','si'); idx.textContent=String(i+1);
+  const w=htag('input','inp'); w.type='number'; w.inputMode='decimal'; w.placeholder='кг'; w.value=s.w||'';
+  const r=htag('input','inp'); r.type='number'; r.inputMode='numeric'; r.placeholder='повт'; r.value=s.r||'';
+  const done=htag('button','chipbtn'); done.textContent=s.done?'✓':'Готово'; if(s.done) done.classList.add('on');
+  const del=htag('button','iconbtn'); del.textContent='–'; del.style.width='34px'; del.style.height='34px';
+
+  w.oninput=()=>{ s.w=parseFloat(w.value)||0; maybeAuto(done,c,exId); };
+  r.oninput=()=>{ s.r=parseInt(r.value)||0; maybeAuto(done,c,exId); };
+  w.onchange=()=>{ s.w=parseFloat(w.value)||0; persist(); Haptic.tick(); };
+  r.onchange=()=>{ s.r=parseInt(r.value)||0; persist(); Haptic.tick(); };
+  done.onclick=()=>{
+    if(!s.w || !s.r){ toast('Введи вес и повторения'); return; }
+    s.done=!s.done; done.classList.toggle('on',s.done); done.textContent=s.done?'✓':'Готово';
+    if(s.done){ Haptic.ok(); persist(); startRest(exId); }
+  };
+  del.onclick=()=>{ c.entries[exId].splice(i,1); renderWorkout(); };
+  row.append(idx,w,r,done,del);
+  return row;
+}
+
+function maybeAuto(done,c,exId){
+  const sets=c.entries[exId];
+  const last=sets[sets.length-1];
+  if(last && last.done && last.w && last.r){} 
+}
+
+function addSet(c,exId){
+  if(!c.entries[exId]) c.entries[exId]=[];
+  const pr=previousTop(exId, c.startedAt);
+  const w=pr?pr.w:Math.round(c.entries[exId].reduce((m,s)=>Math.max(m,s.w||0),pr?0:40));
+  const s={w:(pr?w:''), r:(pr?pr.r:''), done:false};
+  c.entries[exId].push(s); persist(); renderWorkout();
+  // focus weight
+  const inputs=document.querySelectorAll('#app input[type=number]'); if(inputs.length){ inputs[inputs.length-2].focus(); }
+}
+
+function removeExercise(c,exId){ c.entries[exId]=[]; Haptic.warn(); persist(); renderWorkout(); }
+
+function finishWorkout(){
+  const c=state.current; if(!c) return;
+  // drop empty exercises, count sets
+  let sets=0; let totalKg=0;
+  Object.keys(c.entries).forEach(eid=>{
+    const list=(c.entries[eid]||[]).filter(s=>s.done && s.w && s.r);
+    c.entries[eid]=list;
+    sets+=list.length; list.forEach(s=> totalKg+= s.w*s.r);
+  });
+  // check non-empty
+  const nonEmpty=Object.keys(c.entries).some(eid=>(c.entries[eid]||[]).length>0);
+  if(!nonEmpty){ toast('Ни одного завершённого подхода'); return; }
+  clearRest();
+  state.history.push({ id:nid(), programId:c.programId, date:new Date().toISOString(), totalKg:Math.round(totalKg), exercises:Object.keys(c.entries).filter(eid=>c.entries[eid].length>0).length, entries:c.entries });
+  state.current=null; persist(); Haptic.ok(); toast('Тренировка сохранена ✓'); goto('home');
+}
+
+/* ---------- History ---------- */
+function renderHistory(){
+  const prog=state.programs[0];
+  const hist=historyFor(prog.id).slice().reverse();
+  app.innerHTML='';
+  const top=htag('div','top'); top.innerHTML='<div class="brand"><div class="dot"></div></div><h1>История</h1>'; app.appendChild(top);
+  const c=htag('div','card');
+  if(hist.length===0){ c.innerHTML='<div class="empty"><div class="big">🏋️</div><p>Тренировок пока нет.<br>Проведи первую — появится база для сравнения весов.</p></div>'; app.appendChild(c); return; }
+  c.innerHTML='<h2>Все тренировки</h2>';
+  const wrap=htag('div','history');
+  hist.forEach(s=>{
+    const d=htag('div','item');
+    const dt=htag('div'); dt.innerHTML=`<div class="date">${fmtDate(s.date)}</div><div class="sets">${countSets(s)} подходов · ${s.exercises} упр. · общий тоннаж</div>`;
+    const v=htag('div','val'); v.textContent=fmtNum(s.totalKg)+' кг';
+    d.append(dt,v); wrap.appendChild(d);
+  });
+  c.appendChild(wrap); app.appendChild(c);
+  const del=htag('button','btn warn'); del.textContent='Очистить историю'; del.onclick=()=>{ if(confirm('Удалить всю историю?')){ state.history=state.history.filter(x=>x.programId!==prog.id); persist(); renderHistory(); } };
+  app.appendChild(del);
+  bottomBar.innerHTML=''; const b=htag('button','btn ghost'); b.textContent='← На главную'; b.onclick=()=>goto('home'); bottomBar.appendChild(b);
+}
+
+/* ---------- Program editor ---------- */
+function openProgramEditor(pid){
+  const prog=state.programs.find(p=>p.id===pid)||state.programs[0];
+  sheet.innerHTML='';
+  const h=htag('h3'); h.textContent='Упражнения'; sheet.appendChild(h);
+  const f=htag('div','field'); f.innerHTML='<label>Название программы</label>'; const inp=htag('input'); inp.value=prog.name; f.appendChild(inp); sheet.appendChild(f);
+  const list=htag('div');
+  prog.exercises.forEach((ex,i)=>{
+    const r=htag('div','row'); const l=htag('div'); l.innerHTML=`<div class="name">${esc(ex.name)}</div>`;
+    const d=htag('button','iconbtn'); d.textContent='✕'; d.style.width='34px'; d.style.height='34px';
+    d.onclick=()=>{ prog.exercises.splice(i,1); openProgramEditor(pid); };
+    r.append(l,d); list.appendChild(r);
+  });
+  sheet.appendChild(list);
+  const add=htag('button','addset'); add.textContent='+ Упражнение'; add.onclick=()=>{
+    const name=prompt('Название упражнения:'); if(name&&name.trim()){ prog.exercises.push({id:nid(),name:name.trim()}); openProgramEditor(pid); }
+  };
+  sheet.appendChild(add);
+  const save=htag('button','btn'); save.style.marginTop='16px'; save.textContent='Сохранить'; save.onclick=()=>{ prog.name=inp.value.trim()||prog.name; persist(); closeModal(); };
+  sheet.appendChild(save);
+  modal.classList.add('show');
+}
+
+/* ---------- Rest timer ---------- */
+const restEl=document.getElementById('rest');
+const restTime=document.getElementById('restTime');
+const restFill=document.getElementById('restFill');
+const restChips=document.getElementById('restChips');
+let restTimer=null, restEnd=0, restDur=90, restTotal=90;
+const PRESETS=[60,90,120,180];
+
+function buildRestChips(){
+  restChips.innerHTML='';
+  PRESETS.forEach(p=>{
+    const b=htag('button','chipbtn'); b.textContent=p===60?'1:00':(p===90?'1:30':(p===120?'2:00':'3:00')); if(p===restDur) b.classList.add('on');
+    b.onclick=()=>{ restDur=p; buildRestChips(); if(restTimer){ restEnd=Date.now()+restDur*1000; restTotal=restDur; } };
+    restChips.appendChild(b);
+  });
+}
+function startRest(exId){
+  restDur=90; buildRestChips();
+  restEnd=Date.now()+restDur*1000; restTotal=restDur;
+  restEl.classList.add('show');
+  clearInterval(restTimer);
+  restTimer=setInterval(tickRest,200);
+  tickRest();
+}
+function tickRest(){
+  const left=Math.max(0,restEnd-Date.now());
+  const sec=Math.ceil(left/1000);
+  const m=Math.floor(sec/60), s=sec%60;
+  restTime.textContent=(s<10?'0':'')+s; // show seconds big; minutes in till label
+  restTime.textContent=(m>0?m+':'+(s<10?'0':'')+s:s);
+  restFill.style.width=(left/(restTotal*1000)*100)+'%';
+  if(left<=0){ clearInterval(restTimer); restTimer=null; restFill.style.width='0%'; Haptic.warn(); toast('Отдых окончен — время следующего подхода'); restEl.classList.remove('show'); }
+}
+function clearRest(){ if(restTimer){ clearInterval(restTimer); restTimer=null; } restEl.classList.remove('show'); }
+restTime.onclick=()=>{ if(!restTimer) return; clearInterval(restTimer); restTimer=null; restFill.style.width='0%'; restEl.classList.remove('show'); };
+
+/* ---------- helpers ---------- */
+function previousSession(progId, beforeTs){
+  // find most recent history session for this program before the current start
+  const list=state.history.filter(h=>h.programId===progId && new Date(h.date).getTime()<beforeTs);
+  if(!list.length) return null;
+  return list.reduce((a,b)=> new Date(a.date)>new Date(b.date)?a:b);
+}
+function previousTop(exId,beforeTs){
+  const prev=previousSession(state.current?state.current.programId:null,beforeTs||Date.now());
+  if(!prev) return null;
+  const sets=(prev.entries&&prev.entries[exId])||[];
+  if(!sets.length) return null;
+  return sets.reduce((a,s)=>(s.w>a.w?s:a),{w:0,r:0});
+}
+function historyFor(progId){ return state.history.filter(h=>h.programId===progId); }
+function countSets(s){ return Object.values(s.entries||{}).reduce((n,l)=>n+(l?l.length:0),0); }
+function computeStats(){
+  const hist=state.history.slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(!hist.length) return null;
+  const now=new Date(); const cutoff=now.getTime()-28*864e5;
+  const recent=hist.filter(h=>new Date(h.date).getTime()>=cutoff);
+  const tonnage=recent.reduce((n,h)=>n+(h.totalKg||0),0);
+  const perWeek=(recent.length/4).toFixed(1);
+  return { tonnage:fmtNum(tonnage), perWeek };
+}
+function fmtNum(n){ n=Math.round(n||0); return n>=1000? (n/1000).toFixed(1).replace('.',',')+'к' : String(n); }
+function fmtDate(iso){ const d=new Date(iso); return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})+', '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function closeModal(){ modal.classList.remove('show'); }
+modal.onclick=(e)=>{ if(e.target===modal) closeModal(); };
+
+/* ---------- router ---------- */
+const views={ home:renderHome, workout:renderWorkout, history:renderHistory };
+function goto(v){ curView=v; if(v!=='workout') clearRest(); (views[v]||renderHome)(); window.scrollTo(0,0); }
+
+/* ---------- boot: async load real state ---------- */
+(async function init(){
+  const raw= await Storage.get('sa_fit_v1');
+  if(raw){ try{ const parsed=JSON.parse(raw); if(parsed && parsed.programs){ state=parsed; if(!state.history) state.history=[]; if(!state.current) state.current=null; } }catch(e){} }
+  if(!state.programs || !state.programs.length) state=seed();
+  persist();
+  goto('home');
+})();
+</script>
+</body>
+</html>
