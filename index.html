@@ -761,10 +761,26 @@ const Storage = {
     return !!(WTA && WTA.CloudStorage && typeof WTA.CloudStorage.getItem === 'function');
   },
 
-  // Unique user namespace for complete session separation
-  get userPrefix() {
+  // Unique user namespace for complete session separation & link pairing
+  get userId() {
     const tgUserId = WTA?.initDataUnsafe?.user?.id;
-    if (tgUserId) return 'u_' + tgUserId + '_';
+    if (tgUserId) return String(tgUserId);
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlUid = urlParams.get('uid');
+    if (urlUid) {
+      try { localStorage.setItem('synchro_linked_uid', urlUid); } catch(e){}
+      return String(urlUid);
+    }
+    try {
+      const cached = localStorage.getItem('synchro_linked_uid');
+      if (cached) return String(cached);
+    } catch(e){}
+    return null;
+  },
+
+  get userPrefix() {
+    const uid = this.userId;
+    if (uid) return 'u_' + uid + '_';
     let localId = '';
     try {
       localId = localStorage.getItem('synchro_client_id');
@@ -1164,6 +1180,9 @@ document.getElementById('navbar').addEventListener('click', (e) => {
 });
 
 function renderHeaderTop() {
+  const uid = Storage.userId;
+  const badgeLabel = uid ? ('ID: ' + (uid.length > 6 ? uid.slice(0, 3) + '..' + uid.slice(-3) : uid)) : 'Личная ссылка';
+
   return `
     <div class="header-top">
       <div class="brand-group">
@@ -1183,9 +1202,81 @@ function renderHeaderTop() {
         <button class="desktop-nav-btn ${curView === 'history' ? 'active' : ''}" data-view="history" onclick="setView('history')">📜 История</button>
       </div>
 
-      <button class="iconbtn" onclick="openNewProgramModal()" title="Добавить тренировку">+</button>
+      <div style="display:flex; align-items:center; gap:8px">
+        <button class="chip" onclick="openProfileModal()" title="Личная ссылка синхронизации" style="display:flex; align-items:center; gap:4px">
+          <span>🔗</span>
+          <span>${badgeLabel}</span>
+        </button>
+        <button class="iconbtn" onclick="openNewProgramModal()" title="Добавить тренировку">+</button>
+      </div>
     </div>
   `;
+}
+
+function openProfileModal() {
+  const uid = Storage.userId || '';
+  const currentUrl = window.location.origin + window.location.pathname;
+  const personalUrl = uid ? `${currentUrl}?uid=${uid}` : currentUrl;
+
+  sheet.innerHTML = `
+    <div class="sheet-title">
+      <span>Личная ссылка и профиль</span>
+      <button class="iconbtn sm" onclick="closeModal()">✕</button>
+    </div>
+    
+    <div class="card coach" style="margin-bottom:14px">
+      <div style="font-size:13px; line-height:1.45">
+        ${uid ? `✅ <b>Привязано к Telegram ID: <code>${uid}</code></b>.<br>Все тренировки сохраняются в твой изолированный профиль. Открывай эту ссылку на ПК или в зале — данные будут общими только для тебя.` : `ℹ️ Сайт открыт в режиме гостя.<br>Привяжи свой Telegram ID, чтобы тренировки синхронизировались между телефоном и компьютером.`}
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Твоя персональная ссылка</label>
+      <input type="text" id="personalLinkInput" class="field-input" readonly value="${personalUrl}">
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <button class="btn" onclick="copyPersonalLink()">📋 Скопировать личную ссылку</button>
+      
+      <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--card-border-subtle)">
+        <label class="field-label">Привязать Telegram ID вручную</label>
+        <div style="display:flex; gap:8px">
+          <input type="text" id="manualUidInput" class="field-input" placeholder="например: 123456789" value="${uid}">
+          <button class="btn sm ghost" style="width:auto; white-space:nowrap" onclick="saveManualUid()">Привязать</button>
+        </div>
+      </div>
+    </div>
+  `;
+  modal.classList.add('show');
+}
+
+function copyPersonalLink() {
+  const inp = document.getElementById('personalLinkInput');
+  if (inp) {
+    inp.select();
+    navigator.clipboard.writeText(inp.value).then(() => {
+      Haptic.ok();
+      toast('Личная ссылка скопирована! ✓');
+    }).catch(() => {
+      document.execCommand('copy');
+      toast('Личная ссылка скопирована! ✓');
+    });
+  }
+}
+
+function saveManualUid() {
+  const inp = document.getElementById('manualUidInput');
+  const val = inp && inp.value.trim();
+  if (!val) {
+    toast('Введите корректный Telegram ID');
+    return;
+  }
+  localStorage.setItem('synchro_linked_uid', val);
+  Haptic.ok();
+  toast('ID успешно привязан! Обновление...');
+  setTimeout(() => {
+    window.location.href = window.location.origin + window.location.pathname + '?uid=' + encodeURIComponent(val);
+  }, 400);
 }
 
 /* ---------- 6.1 VIEW: HOME (DESKTOP + MOBILE ADAPTIVE) ---------- */
