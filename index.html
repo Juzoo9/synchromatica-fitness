@@ -1339,6 +1339,12 @@ function openProfileModal() {
           <button class="btn sm ghost" style="width:auto; white-space:nowrap" onclick="saveManualUid()">Привязать</button>
         </div>
       </div>
+
+      <div style="margin-top:8px">
+        <a href="https://t.me/synchromatica" target="_blank" class="btn sm ghost" style="text-decoration:none; justify-content:center; color:var(--acc-light); border-color:var(--card-border)">
+          📢 Наш Telegram-канал: @synchromatica
+        </a>
+      </div>
     </div>
   `;
   modal.classList.add('show');
@@ -1617,6 +1623,22 @@ function renderCoachView() {
   });
 
   html += `</div>`;
+
+  html += `
+    <div class="card coach" style="margin-top:16px; border-color:#255437; background:linear-gradient(160deg, #112f1f 0%, #0c1b12 100%)">
+      <div class="card-header">
+        <div class="card-title">📢 Канал создателя & Программы</div>
+        <span class="badge blue">@synchromatica</span>
+      </div>
+      <p class="card-desc" style="margin-bottom:12px">
+        Хочешь больше готовых тренировочных программ (PPL, Верх/Низ, Full Body), научные разборы силовых циклов и обновления трекера? Заходи в наш Telegram-канал.
+      </p>
+      <a href="https://t.me/synchromatica" target="_blank" class="btn sm" style="text-decoration:none; justify-content:center">
+        👉 Перейти в канал @synchromatica
+      </a>
+    </div>
+  `;
+
   app.innerHTML = html;
 }
 
