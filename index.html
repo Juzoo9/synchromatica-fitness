@@ -3,69 +3,112 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Synchromatica Fitness</title>
+<title>Synchromatica Fitness — Трекер и Аналитика</title>
 <style>
   :root {
     --bg: #07100b;
-    --bg-surface: #0c1a12;
+    --bg-surface: #0c1c13;
     --card: #102419;
-    --card-hover: #142f21;
-    --card-border: #1b3d2b;
-    --card-border-subtle: #153323;
+    --card-hover: #153022;
+    --card-border: #1a3c2a;
+    --card-border-subtle: #132e20;
     --txt: #f0f7f3;
     --txt-muted: #82a893;
-    --txt-dim: #4e735f;
+    --txt-dim: #4d735f;
     --acc: #2ecc71;
     --acc-light: #48e68b;
     --acc-dark: #1b7a42;
-    --acc-glow: rgba(46, 204, 113, 0.25);
+    --acc-glow: rgba(46, 204, 113, 0.22);
     --warn: #f59e0b;
     --danger: #ef4444;
     --blue: #38bdf8;
+    --purple: #a855f7;
     --radius: 16px;
     --radius-sm: 10px;
-    --shadow: 0 8px 32px rgba(0,0,0,0.45);
+    --shadow: 0 10px 36px rgba(0,0,0,0.45);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; }
-  body {
-    background: radial-gradient(1000px 500px at 70% -5%, #133321 0%, var(--bg) 60%);
+  html, body {
+    min-height: 100%;
     background-color: var(--bg);
     color: var(--txt);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
-    overscroll-behavior: none;
-    user-select: none;
-    line-height: 1.4;
+    line-height: 1.45;
   }
 
+  body {
+    background: radial-gradient(1200px 600px at 75% -5%, #133321 0%, var(--bg) 65%);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Container adapts: Narrow on mobile, spacious grid on desktop */
   #app {
-    max-width: 520px;
+    width: 100%;
+    max-width: 540px;
     margin: 0 auto;
-    min-height: 100vh;
-    padding: calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 85px);
+    padding: calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 90px);
+    transition: max-width 0.25s ease;
   }
 
-  /* Typography & headers */
+  /* Desktop layout adaptations */
+  @media (min-width: 768px) {
+    #app {
+      max-width: 1020px;
+      padding: 24px 28px 48px;
+    }
+    .desktop-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .desktop-col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    /* Hide bottom bar on desktop, use header top nav instead */
+    .navbar {
+      display: none !important;
+    }
+    .desktop-nav {
+      display: flex !important;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .desktop-nav {
+      display: none !important;
+    }
+    .desktop-grid {
+      display: block;
+    }
+  }
+
+  /* Header Top Bar */
   .header-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 18px;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--card-border-subtle);
   }
   .brand-group {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
   .brand-dot {
-    width: 10px;
-    height: 10px;
+    width: 11px;
+    height: 11px;
     border-radius: 50%;
     background: var(--acc);
-    box-shadow: 0 0 14px var(--acc);
+    box-shadow: 0 0 16px var(--acc);
     flex-shrink: 0;
   }
   .brand-title {
@@ -75,11 +118,46 @@
     color: var(--txt);
   }
   .brand-subtitle {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--txt-muted);
     font-weight: 500;
   }
 
+  /* Desktop Top Navigation Tabs */
+  .desktop-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #09170f;
+    border: 1px solid var(--card-border-subtle);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .desktop-nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--txt-muted);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .desktop-nav-btn:hover {
+    color: var(--txt);
+    background: rgba(46, 204, 113, 0.08);
+  }
+  .desktop-nav-btn.active {
+    background: var(--acc);
+    color: #03140a;
+    font-weight: 700;
+  }
+
+  /* Icon Buttons */
   .iconbtn {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -107,10 +185,18 @@
     margin-bottom: 12px;
     position: relative;
     overflow: hidden;
+    transition: border-color 0.2s ease;
+  }
+  .card:hover {
+    border-color: #214b34;
   }
   .card.highlight {
     border-color: var(--acc-dark);
     background: linear-gradient(160deg, #102d1d 0%, var(--card) 100%);
+  }
+  .card.coach {
+    border-color: #2a5038;
+    background: linear-gradient(165deg, #0f2b1c 0%, #0d1e15 100%);
   }
   .card-header {
     display: flex;
@@ -132,7 +218,7 @@
     line-height: 1.45;
   }
 
-  /* Badge */
+  /* Badges */
   .badge {
     display: inline-flex;
     align-items: center;
@@ -148,6 +234,8 @@
   }
   .badge.today { background: var(--acc-glow); color: var(--acc-light); border: 1px solid var(--acc-dark); }
   .badge.blue { background: rgba(56, 189, 248, 0.15); color: var(--blue); border: 1px solid rgba(56, 189, 248, 0.3); }
+  .badge.overload { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+  .badge.plateau { background: rgba(168, 85, 247, 0.16); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
 
   /* Buttons */
   .btn {
@@ -156,25 +244,30 @@
     justify-content: center;
     gap: 8px;
     width: 100%;
-    padding: 14px 18px;
+    padding: 13px 18px;
     border: none;
-    border-radius: 14px;
+    border-radius: 13px;
     background: linear-gradient(135deg, var(--acc), var(--acc-light));
     color: #03140a;
-    font-size: 15px;
+    font-size: 14.5px;
     font-weight: 700;
     cursor: pointer;
     letter-spacing: 0.1px;
-    transition: transform 0.15s ease, opacity 0.15s ease;
+    transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
   }
+  .btn:hover { box-shadow: 0 4px 18px rgba(46, 204, 113, 0.35); }
   .btn:active { transform: scale(0.98); }
   .btn.ghost {
     background: var(--card-border-subtle);
     color: var(--txt);
     border: 1px solid var(--card-border);
   }
+  .btn.ghost:hover {
+    background: var(--card-border);
+    box-shadow: none;
+  }
   .btn.sm {
-    padding: 10px 14px;
+    padding: 9px 13px;
     font-size: 13px;
     border-radius: 10px;
   }
@@ -183,8 +276,12 @@
     color: var(--danger);
     border: 1px solid rgba(239, 68, 68, 0.3);
   }
+  .btn.warn:hover {
+    background: rgba(239, 68, 68, 0.22);
+    box-shadow: none;
+  }
 
-  /* Schedule Day Pill & List */
+  /* Schedule Cards */
   .day-card {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -198,10 +295,15 @@
     justify-content: space-between;
     gap: 12px;
   }
-  .day-card:active { transform: scale(0.985); }
+  .day-card:hover {
+    border-color: #275a3e;
+    transform: translateY(-1px);
+  }
+  .day-card:active { transform: scale(0.99); }
   .day-card.active-today {
     border-color: var(--acc);
-    box-shadow: 0 0 16px rgba(46, 204, 113, 0.15);
+    box-shadow: 0 0 18px rgba(46, 204, 113, 0.18);
+    background: linear-gradient(145deg, #102a1c 0%, var(--card) 100%);
   }
   .day-left {
     display: flex;
@@ -217,31 +319,22 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .day-info {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--txt-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .day-action {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
 
-  /* Exercise Workout Item */
+  /* Exercise Workout Blocks */
   .exblk {
     background: var(--card);
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
-    padding: 14px;
-    margin-bottom: 12px;
+    padding: 15px;
+    margin-bottom: 14px;
   }
   .exblk-hd {
     display: flex;
@@ -253,23 +346,35 @@
   .ex-name { font-size: 16px; font-weight: 700; color: var(--txt); }
   .ex-sub { font-size: 12px; color: var(--txt-muted); margin-top: 2px; }
 
-  .pr-hint {
-    background: #0a1f14;
-    border: 1px solid #173d27;
-    border-radius: 9px;
-    padding: 7px 11px;
-    font-size: 12px;
-    color: #9cd4b5;
-    display: flex;
-    align-items: center;
-    gap: 7px;
+  /* Coach Progressive Overload Box */
+  .coach-tip-box {
+    background: #0a1f13;
+    border: 1px solid #1a4a2d;
+    border-radius: 11px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    color: #a4ddbd;
     margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.45;
   }
-  .pr-hint b { color: var(--acc-light); font-weight: 700; }
+  .coach-tip-box.upgrade {
+    background: #191f0c;
+    border-color: #4a441a;
+    color: #fce891;
+  }
+  .coach-tip-box.plateau {
+    background: #181124;
+    border-color: #3b2359;
+    color: #dab8fc;
+  }
+  .coach-tip-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
 
   .setrow {
     display: grid;
-    grid-template-columns: 24px 1fr 1fr 76px 34px;
+    grid-template-columns: 24px 1fr 1fr 82px 34px;
     gap: 8px;
     align-items: center;
     margin-bottom: 8px;
@@ -315,6 +420,7 @@
     border-color: var(--acc);
     box-shadow: 0 0 12px var(--acc-glow);
   }
+
   .add-set-btn {
     width: 100%;
     padding: 10px;
@@ -328,24 +434,27 @@
     margin-top: 4px;
     transition: background 0.15s ease;
   }
-  .add-set-btn:active { background: rgba(46, 204, 113, 0.08); }
+  .add-set-btn:hover { background: rgba(46, 204, 113, 0.08); }
 
   /* Rest Timer Overlay Bar */
   #rest-bar {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 70px;
+    bottom: 74px;
     z-index: 45;
     max-width: 520px;
     margin: 0 auto;
-    background: rgba(12, 28, 19, 0.95);
+    background: rgba(12, 28, 19, 0.96);
     border-top: 1px solid var(--card-border);
     border-bottom: 1px solid var(--card-border);
     backdrop-filter: blur(12px);
     padding: 10px 16px;
-    transform: translateY(150%);
+    transform: translateY(160%);
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @media (min-width: 768px) {
+    #rest-bar { bottom: 20px; border-radius: 14px; border: 1px solid var(--acc-dark); }
   }
   #rest-bar.show { transform: translateY(0); }
   .rest-track {
@@ -374,10 +483,7 @@
     color: var(--txt);
     cursor: pointer;
   }
-  .rest-chips {
-    display: flex;
-    gap: 6px;
-  }
+  .rest-chips { display: flex; gap: 6px; }
   .chip {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -387,26 +493,28 @@
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
+    transition: background 0.15s ease;
   }
+  .chip:hover { color: var(--txt); }
   .chip.active {
     background: var(--acc);
     color: #03140a;
     border-color: var(--acc);
   }
 
-  /* Bottom Navigation Bar */
+  /* Bottom Navigation Bar (Mobile / TG Mini App) */
   .navbar {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 40;
-    max-width: 520px;
+    max-width: 540px;
     margin: 0 auto;
-    background: rgba(7, 16, 11, 0.94);
+    background: rgba(7, 16, 11, 0.95);
     border-top: 1px solid var(--card-border-subtle);
     backdrop-filter: blur(14px);
-    padding: 8px 12px calc(env(safe-area-inset-bottom) + 8px);
+    padding: 8px 10px calc(env(safe-area-inset-bottom) + 8px);
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -422,23 +530,19 @@
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    padding: 6px 12px;
+    padding: 6px 10px;
     border-radius: 10px;
     transition: color 0.15s ease;
   }
-  .nav-item.active {
-    color: var(--acc-light);
-  }
-  .nav-icon {
-    font-size: 18px;
-  }
+  .nav-item.active { color: var(--acc-light); }
+  .nav-icon { font-size: 18px; }
 
-  /* Toast notification */
+  /* Toast Notification */
   .toast {
     position: fixed;
     left: 50%;
     top: calc(env(safe-area-inset-top) + 16px);
-    transform: translateX(-50%) translateY(-140%);
+    transform: translateX(-50%) translateY(-150%);
     background: #143522;
     border: 1px solid var(--acc);
     color: var(--txt);
@@ -469,14 +573,18 @@
   .modal-overlay.show { display: flex; }
   .sheet {
     width: 100%;
-    max-width: 520px;
+    max-width: 580px;
     background: #0b1a11;
     border: 1px solid var(--card-border);
     border-bottom: none;
     border-radius: 24px 24px 0 0;
-    padding: 20px 18px calc(env(safe-area-inset-bottom) + 24px);
+    padding: 22px 20px calc(env(safe-area-inset-bottom) + 24px);
     max-height: 85vh;
     overflow-y: auto;
+  }
+  @media (min-width: 768px) {
+    .modal-overlay { align-items: center; }
+    .sheet { border-radius: 22px; border-bottom: 1px solid var(--card-border); max-height: 80vh; }
   }
   .sheet-title {
     font-size: 18px;
@@ -486,9 +594,7 @@
     justify-content: space-between;
     align-items: center;
   }
-  .field {
-    margin-bottom: 14px;
-  }
+  .field { margin-bottom: 14px; }
   .field-label {
     display: block;
     font-size: 12px;
@@ -507,10 +613,7 @@
     color: var(--txt);
     font-size: 15px;
   }
-  .field-input:focus, .field-select:focus {
-    outline: none;
-    border-color: var(--acc);
-  }
+  .field-input:focus, .field-select:focus { outline: none; border-color: var(--acc); }
 
   /* Stats grid */
   .stats-grid {
@@ -529,7 +632,7 @@
   .stat-val { font-size: 22px; font-weight: 800; color: var(--txt); margin-top: 4px; }
   .stat-val b { color: var(--acc-light); font-size: 14px; margin-left: 2px; }
 
-  /* Chart SVG Container */
+  /* Chart SVG */
   .chart-container {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -545,11 +648,7 @@
     justify-content: space-between;
     align-items: center;
   }
-  .chart-svg {
-    width: 100%;
-    height: 150px;
-    overflow: visible;
-  }
+  .chart-svg { width: 100%; height: 160px; overflow: visible; }
 
   /* History list */
   .hist-item {
@@ -568,16 +667,9 @@
   .hist-tonnage { font-size: 14px; font-weight: 800; color: var(--acc-light); }
   .hist-sub { font-size: 12px; color: var(--txt-muted); }
 
-  /* Empty state */
-  .empty-state {
-    text-align: center;
-    padding: 40px 16px;
-    color: var(--txt-muted);
-  }
-  .empty-icon { font-size: 40px; margin-bottom: 12px; }
-  .empty-state p { font-size: 14px; line-height: 1.5; }
+  .empty-state { text-align: center; padding: 36px 16px; color: var(--txt-muted); }
+  .empty-icon { font-size: 40px; margin-bottom: 10px; }
 
-  /* Exercise drag/item row in editor */
   .edit-ex-row {
     display: flex;
     align-items: center;
@@ -595,7 +687,7 @@
 
 <div id="app"></div>
 
-<!-- Rest Timer Floating Bar -->
+<!-- Rest Timer Bar -->
 <div id="rest-bar">
   <div class="rest-track"><div class="rest-fill" id="restFill"></div></div>
   <div class="rest-content">
@@ -604,7 +696,7 @@
   </div>
 </div>
 
-<!-- Bottom Navigation Bar -->
+<!-- Bottom Navigation Bar (Mobile / Telegram) -->
 <nav class="navbar" id="navbar">
   <button class="nav-item active" data-view="home">
     <span class="nav-icon">🏠</span>
@@ -613,6 +705,10 @@
   <button class="nav-item" data-view="programs">
     <span class="nav-icon">📋</span>
     <span>Расписание</span>
+  </button>
+  <button class="nav-item" data-view="coach">
+    <span class="nav-icon">💡</span>
+    <span>Аналитика</span>
   </button>
   <button class="nav-item" data-view="stats">
     <span class="nav-icon">📈</span>
@@ -627,7 +723,7 @@
 <!-- Toast -->
 <div id="toast" class="toast"></div>
 
-<!-- Sheet Modal -->
+<!-- Modal -->
 <div class="modal-overlay" id="modal">
   <div class="sheet" id="sheet"></div>
 </div>
@@ -639,6 +735,8 @@
    1. Telegram Integration & Haptics
    ========================================================= */
 const WTA = (window.Telegram && window.Telegram.WebApp) || null;
+const isTelegramWebApp = !!(WTA && WTA.initData);
+
 if (WTA) {
   try {
     WTA.ready();
@@ -656,11 +754,7 @@ const Haptic = {
 };
 
 /* =========================================================
-   2. Optimized Keyed Storage (Telegram CloudStorage + Fallback)
-   Каждая тренировка сохраняется отдельным ключом: w_<id>
-   Индекс тренировок хранится в ключе fit_idx (массив id)
-   Метаданные и программы хранятся в ключе fit_programs
-   Черновик активной тренировки хранится в fit_active
+   2. Optimized Keyed Storage
    ========================================================= */
 const Storage = {
   get hasCloud() {
@@ -732,7 +826,6 @@ const Storage = {
       } catch (e) {}
     }
 
-    // fallback to local for any missing keys
     for (const k of keys) {
       if (!result[k]) {
         try {
@@ -746,7 +839,7 @@ const Storage = {
 };
 
 /* =========================================================
-   3. Default Workout Schedule: Пн, Ср, Пт + Custom
+   3. Default Schedule: Mon / Wed / Fri + Custom Days
    ========================================================= */
 const DEFAULT_PROGRAMS = [
   {
@@ -755,11 +848,11 @@ const DEFAULT_PROGRAMS = [
     dayName: 'Понедельник',
     name: 'Грудь + Трицепс + Передняя дельта',
     exercises: [
-      { id: 'ex_bench', name: 'Жим штанги лёжа' },
-      { id: 'ex_incline_db', name: 'Жим гантелей на наклонной скамье' },
-      { id: 'ex_fly', name: 'Разведение гантелей / Бабочка' },
-      { id: 'ex_dips', name: 'Отжимания на брусьях' },
-      { id: 'ex_tri_cable', name: 'Разгибания на трицепс в блоке' }
+      { id: 'ex_bench', name: 'Жим штанги лёжа', targetReps: 8, targetSets: 4, type: 'upper' },
+      { id: 'ex_incline_db', name: 'Жим гантелей на наклонной скамье', targetReps: 10, targetSets: 3, type: 'upper' },
+      { id: 'ex_fly', name: 'Разведение гантелей / Бабочка', targetReps: 12, targetSets: 3, type: 'upper' },
+      { id: 'ex_dips', name: 'Отжимания на брусьях', targetReps: 10, targetSets: 3, type: 'upper' },
+      { id: 'ex_tri_cable', name: 'Разгибания на трицепс в блоке', targetReps: 12, targetSets: 3, type: 'upper' }
     ]
   },
   {
@@ -768,11 +861,11 @@ const DEFAULT_PROGRAMS = [
     dayName: 'Среда',
     name: 'Спина + Бицепс + Задняя дельта',
     exercises: [
-      { id: 'ex_pullups', name: 'Подтягивания (или верхний блок)' },
-      { id: 'ex_barbell_row', name: 'Тяга штанги в наклоне' },
-      { id: 'ex_seated_cable', name: 'Тяга горизонтального блока к поясу' },
-      { id: 'ex_bicep_bb', name: 'Подъём штанги на бицепс' },
-      { id: 'ex_hammer_curl', name: 'Молотковые сгибания с гантелями' }
+      { id: 'ex_pullups', name: 'Подтягивания (или верхний блок)', targetReps: 8, targetSets: 4, type: 'upper' },
+      { id: 'ex_barbell_row', name: 'Тяга штанги в наклоне', targetReps: 8, targetSets: 4, type: 'upper' },
+      { id: 'ex_seated_cable', name: 'Тяга горизонтального блока к поясу', targetReps: 10, targetSets: 3, type: 'upper' },
+      { id: 'ex_bicep_bb', name: 'Подъём штанги на бицепс', targetReps: 10, targetSets: 3, type: 'upper' },
+      { id: 'ex_hammer_curl', name: 'Молотковые сгибания с гантелями', targetReps: 12, targetSets: 3, type: 'upper' }
     ]
   },
   {
@@ -781,23 +874,23 @@ const DEFAULT_PROGRAMS = [
     dayName: 'Пятница',
     name: 'Ноги + Плечи',
     exercises: [
-      { id: 'ex_squat', name: 'Приседания со штангой' },
-      { id: 'ex_leg_press', name: 'Жим ногами в тренажёре' },
-      { id: 'ex_leg_curl', name: 'Сгибания ног лёжа / Румынская тяга' },
-      { id: 'ex_ohp', name: 'Армейский жим стоя / Жим гантелей сидя' },
-      { id: 'ex_lateral_raise', name: 'Махи гантелями в стороны' }
+      { id: 'ex_squat', name: 'Приседания со штангой', targetReps: 8, targetSets: 4, type: 'lower' },
+      { id: 'ex_leg_press', name: 'Жим ногами в тренажёре', targetReps: 10, targetSets: 3, type: 'lower' },
+      { id: 'ex_leg_curl', name: 'Сгибания ног лёжа / Румынская тяга', targetReps: 10, targetSets: 3, type: 'lower' },
+      { id: 'ex_ohp', name: 'Армейский жим стоя / Жим гантелей сидя', targetReps: 8, targetSets: 4, type: 'upper' },
+      { id: 'ex_lateral_raise', name: 'Махи гантелями в стороны', targetReps: 12, targetSets: 3, type: 'upper' }
     ]
   }
 ];
 
 /* =========================================================
-   4. Application State & Storage Sync
+   4. State
    ========================================================= */
 let state = {
   programs: DEFAULT_PROGRAMS,
-  workoutIds: [], // list of workout IDs: ['w_20261019_1', ...]
-  workouts: {},   // loaded workouts cache: id -> workout object
-  active: null    // current active workout session
+  workoutIds: [],
+  workouts: {},
+  active: null
 };
 
 function genId(prefix = 'id') {
@@ -817,12 +910,10 @@ async function saveActiveWorkout() {
 }
 
 async function saveCompletedWorkout(workout) {
-  // 1. Save workout by its own key
   const key = 'w_' + workout.id;
   await Storage.setItem(key, workout);
   state.workouts[workout.id] = workout;
 
-  // 2. Update index
   if (!state.workoutIds.includes(workout.id)) {
     state.workoutIds.push(workout.id);
     await Storage.setItem('fit_idx', state.workoutIds);
@@ -837,24 +928,19 @@ async function deleteWorkout(id) {
 }
 
 /* =========================================================
-   5. Helpers & Calculations
+   5. Sports Science & Progressive Overload Engine
+   (Мировые методики: NSCA 2-for-2 Rule, Double Progression, Plateau Detection)
    ========================================================= */
-const DAYS_MAP = {
-  1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 0: 'sun'
-};
-const DAY_NAMES = {
-  mon: 'Понедельник', tue: 'Вторник', wed: 'Среда', thu: 'Четверг', fri: 'Пятница', sat: 'Суббота', sun: 'Воскресенье', any: 'Любой день'
-};
+const DAYS_MAP = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 0: 'sun' };
+const DAY_NAMES = { mon: 'Понедельник', tue: 'Вторник', wed: 'Среда', thu: 'Четверг', fri: 'Пятница', sat: 'Суббота', sun: 'Воскресенье', any: 'Любой день' };
 
 function getTodayCode() {
-  const d = new Date().getDay();
-  return DAYS_MAP[d] || 'any';
+  return DAYS_MAP[new Date().getDay()] || 'any';
 }
 
 function getTodayRecommendedProgram() {
   const code = getTodayCode();
-  const prog = state.programs.find(p => p.dayCode === code);
-  return prog || state.programs[0];
+  return state.programs.find(p => p.dayCode === code) || state.programs[0];
 }
 
 function fmtDate(iso) {
@@ -877,50 +963,123 @@ function esc(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// Find previous session top set for an exercise
-function findPreviousExTop(exId, beforeTs) {
-  const list = Object.values(state.workouts)
+// Find previous sessions history for an exercise (ordered newest to oldest)
+function getExerciseHistory(exId, beforeTs) {
+  return Object.values(state.workouts)
     .filter(w => new Date(w.date).getTime() < (beforeTs || Date.now()))
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  for (const w of list) {
-    const sets = (w.entries && w.entries[exId]) || [];
-    const valid = sets.filter(s => (s.done !== false) && s.w && s.r);
-    if (valid.length) {
-      return valid.reduce((best, cur) => (cur.w > best.w ? cur : best), { w: 0, r: 0 });
-    }
-  }
-  return null;
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .map(w => {
+      const sets = (w.entries && w.entries[exId]) || [];
+      const valid = sets.filter(s => s.w > 0 && s.r > 0 && s.done !== false);
+      if (!valid.length) return null;
+      const maxW = Math.max(...valid.map(s => Number(s.w)));
+      const topSet = valid.find(s => Number(s.w) === maxW) || valid[0];
+      return {
+        date: w.date,
+        sets: valid,
+        maxWeight: maxW,
+        topSet,
+        totalVolume: valid.reduce((sum, s) => sum + (s.w * s.r), 0)
+      };
+    })
+    .filter(Boolean);
 }
 
-// Compute general training stats
+// Science-based coach recommendation generator for an exercise
+function getExerciseProgressionAdvice(exId, beforeTs) {
+  const history = getExerciseHistory(exId, beforeTs);
+  if (!history.length) {
+    return {
+      status: 'neutral',
+      title: 'Новое упражнение',
+      text: 'Подбери рабочий вес, с которым сможешь уверенно выполнить 8-10 повторений с запасом в 1-2 повтора (RIR 1-2).'
+    };
+  }
+
+  const latest = history[0];
+  const isLower = exId.includes('squat') || exId.includes('leg') || exId.includes('dead');
+  const recommendedIncrement = isLower ? 5 : 2.5;
+
+  // 1. NSCA 2-for-2 Rule:
+  // If user completed high reps (>= 10 or >= target) with the same weight across last 2 sessions
+  if (history.length >= 2) {
+    const prev = history[1];
+    const sameWeight = Math.abs(latest.maxWeight - prev.maxWeight) < 0.1;
+
+    // Both sessions did 10+ reps or high reps
+    if (sameWeight && latest.topSet.r >= 10 && prev.topSet.r >= 10) {
+      const newWeight = latest.maxWeight + recommendedIncrement;
+      return {
+        status: 'upgrade',
+        weight: newWeight,
+        increment: recommendedIncrement,
+        title: '🔥 Пора повышать вес! (Правило NSCA 2-for-2)',
+        text: `Ты закрыл вес <b>${latest.maxWeight} кг</b> 2 тренировки подряд на 10+ повторений (${prev.topSet.r} и ${latest.topSet.r} повт). Рекомендация тренера: <b>накинь +${recommendedIncrement} кг</b> (новый рабочий вес: <b>${newWeight} кг</b>)!`
+      };
+    }
+  }
+
+  // 2. Plateau detection:
+  // If user used the exact same weight for 3 or more sessions without rep growth
+  if (history.length >= 3) {
+    const last3 = history.slice(0, 3);
+    const weights = last3.map(h => h.maxWeight);
+    const allSame = weights.every(w => Math.abs(w - weights[0]) < 0.1);
+    if (allSame) {
+      const reps = last3.map(h => h.topSet.r);
+      const repsDiff = reps[0] - reps[reps.length - 1];
+      if (repsDiff <= 1) {
+        return {
+          status: 'plateau',
+          weight: latest.maxWeight + (isLower ? 2.5 : 1.25),
+          title: '⚠️ Плато на весе ' + latest.maxWeight + ' кг',
+          text: `Вес держится уже 3 сессии подряд. Совет мировых тренеров: сделай силовой шаг — накинь минимальные <b>+${isLower ? 2.5 : 1.25} кг</b> и сделай 5-6 повторений, либо смени упражнение на 2 недели для мышечной адаптации.`
+        };
+      }
+    }
+  }
+
+  // 3. Normal progression hint (Double progression method - Eric Helms)
+  if (latest.topSet.r >= 10) {
+    return {
+      status: 'upgrade',
+      weight: latest.maxWeight + recommendedIncrement,
+      increment: recommendedIncrement,
+      title: '📈 Отличный запас повторений',
+      text: `В прошлый раз ты закрыл <b>${latest.maxWeight} кг × ${latest.topSet.r}</b>. Попробуй в первом рабочем подходе взять <b>${latest.maxWeight + recommendedIncrement} кг</b> на 6-8 повторений.`
+    };
+  }
+
+  // Still working in the rep range
+  return {
+    status: 'maintain',
+    weight: latest.maxWeight,
+    title: '🎯 Закрепляй рабочий вес',
+    text: `Прошлый результат: <b>${latest.maxWeight} кг × ${latest.topSet.r}</b>. Твоя цель сегодня — добавить +1-2 повторения с этим же весом перед переходом на более тяжелый.`
+  };
+}
+
 function computeOverviewStats() {
   const list = Object.values(state.workouts);
   if (!list.length) return null;
-
   const now = Date.now();
   const monthAgo = now - 28 * 864e5;
   const recent = list.filter(w => new Date(w.date).getTime() >= monthAgo);
 
-  const tonnage4w = recent.reduce((sum, w) => sum + (w.totalKg || 0), 0);
-  const count4w = recent.length;
-  const perWeek = (count4w / 4).toFixed(1);
-
   return {
     totalWorkouts: list.length,
-    tonnage4w: fmtNum(tonnage4w),
-    perWeek
+    tonnage4w: fmtNum(recent.reduce((sum, w) => sum + (w.totalKg || 0), 0)),
+    perWeek: (recent.length / 4).toFixed(1)
   };
 }
 
 /* =========================================================
-   6. UI Components & Views
+   6. UI Views & Router
    ========================================================= */
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
 const modal = document.getElementById('modal');
 const sheet = document.getElementById('sheet');
-const navbar = document.getElementById('navbar');
 
 let curView = 'home';
 let toastTimeout = null;
@@ -932,16 +1091,15 @@ function toast(msg) {
   toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 2600);
 }
 
-function closeModal() {
-  modal.classList.remove('show');
-}
-modal.onclick = (e) => {
-  if (e.target === modal) closeModal();
-};
+function closeModal() { modal.classList.remove('show'); }
+modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
 function setView(viewName) {
   curView = viewName;
   document.querySelectorAll('.nav-item').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === viewName);
+  });
+  document.querySelectorAll('.desktop-nav-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.view === viewName);
   });
   if (viewName !== 'workout') clearRestTimer();
@@ -949,7 +1107,7 @@ function setView(viewName) {
   window.scrollTo(0, 0);
 }
 
-navbar.addEventListener('click', (e) => {
+document.getElementById('navbar').addEventListener('click', (e) => {
   const item = e.target.closest('.nav-item');
   if (item && item.dataset.view) {
     Haptic.tick();
@@ -957,26 +1115,54 @@ navbar.addEventListener('click', (e) => {
   }
 });
 
-/* ---------- 6.1 VIEW: HOME ---------- */
-function renderHome() {
-  const todayCode = getTodayCode();
-  const recommendedProg = getTodayRecommendedProgram();
-  const stats = computeOverviewStats();
-
-  let html = `
+function renderHeaderTop() {
+  return `
     <div class="header-top">
       <div class="brand-group">
         <div class="brand-dot"></div>
         <div>
           <div class="brand-title">Synchromatica</div>
-          <div class="brand-subtitle">Фитнес-трекер прогресса</div>
+          <div class="brand-subtitle">Фитнес-трекер прогресса нагрузок</div>
         </div>
       </div>
+
+      <!-- Desktop Header Tabs -->
+      <div class="desktop-nav">
+        <button class="desktop-nav-btn ${curView === 'home' ? 'active' : ''}" data-view="home" onclick="setView('home')">🏠 Главная</button>
+        <button class="desktop-nav-btn ${curView === 'programs' ? 'active' : ''}" data-view="programs" onclick="setView('programs')">📋 Расписание</button>
+        <button class="desktop-nav-btn ${curView === 'coach' ? 'active' : ''}" data-view="coach" onclick="setView('coach')">💡 Аналитика</button>
+        <button class="desktop-nav-btn ${curView === 'stats' ? 'active' : ''}" data-view="stats" onclick="setView('stats')">📈 Прогресс</button>
+        <button class="desktop-nav-btn ${curView === 'history' ? 'active' : ''}" data-view="history" onclick="setView('history')">📜 История</button>
+      </div>
+
       <button class="iconbtn" onclick="openNewProgramModal()" title="Добавить тренировку">+</button>
     </div>
   `;
+}
 
-  // Active workout banner if in progress
+/* ---------- 6.1 VIEW: HOME (DESKTOP + MOBILE ADAPTIVE) ---------- */
+function renderHome() {
+  const todayCode = getTodayCode();
+  const recommendedProg = getTodayRecommendedProgram();
+  const stats = computeOverviewStats();
+
+  // Find all exercises ready for progression
+  const allExercises = [];
+  state.programs.forEach(p => p.exercises.forEach(e => {
+    if (!allExercises.some(x => x.id === e.id)) allExercises.push(e);
+  }));
+  const coachSuggestions = allExercises.map(e => ({
+    ex: e,
+    advice: getExerciseProgressionAdvice(e.id)
+  })).filter(x => x.advice.status === 'upgrade' || x.advice.status === 'plateau');
+
+  let html = renderHeaderTop();
+
+  html += `<div class="desktop-grid">`;
+
+  /* LEFT COLUMN (Active Session, Today recommendation, Schedule) */
+  html += `<div class="desktop-col">`;
+
   if (state.active) {
     const prog = state.programs.find(p => p.id === state.active.programId) || { name: 'Тренировка' };
     html += `
@@ -985,46 +1171,30 @@ function renderHome() {
           <div class="card-title">🔥 Тренировка не завершена</div>
           <span class="badge today">В процессе</span>
         </div>
-        <p class="card-desc"><b>${esc(prog.name)}</b> начата. Данные сохранены, можно продолжить в любой момент.</p>
+        <p class="card-desc"><b>${esc(prog.name)}</b> начата. Все данные сохраняются на лету.</p>
         <button class="btn" style="margin-top:12px" onclick="resumeActiveWorkout()">Продолжить тренировку →</button>
       </div>
     `;
   }
 
-  // Quick stats card
-  if (stats) {
-    html += `
-      <div class="stats-grid">
-        <div class="stat-box">
-          <div class="stat-label">Тоннаж за 4 нед</div>
-          <div class="stat-val">${stats.tonnage4w}</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">Тренировок / нед</div>
-          <div class="stat-val">${stats.perWeek} <b>в ср.</b></div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Today recommendation card
+  // Today Workout Card
   html += `
     <div class="card">
       <div class="card-header">
         <div class="card-title">🎯 Сегодня: ${DAY_NAMES[todayCode] || 'Тренировка'}</div>
         <span class="badge today">Рекомендация</span>
       </div>
-      <p class="card-desc" style="font-size:14px; font-weight:700; color:var(--txt); margin-bottom:4px">${esc(recommendedProg.name)}</p>
-      <p class="card-desc">${recommendedProg.exercises.length} упражнений. Автоматическое сравнение с предыдущими весами.</p>
+      <p class="card-desc" style="font-size:15px; font-weight:700; color:var(--txt); margin-bottom:4px">${esc(recommendedProg.name)}</p>
+      <p class="card-desc">${recommendedProg.exercises.length} упражнений. Автоматический расчёт прогрессии весов.</p>
       <button class="btn" style="margin-top:14px" onclick="startWorkoutSession('${recommendedProg.id}')">Начать тренировку</button>
     </div>
   `;
 
-  // Schedule overview
+  // Schedule list
   html += `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin:18px 2px 10px">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 2px 6px">
       <span style="font-size:15px; font-weight:700">Твоё расписание (Пн/Ср/Пт)</span>
-      <button class="chip" onclick="setView('programs')">Все программы →</button>
+      <button class="chip" onclick="setView('programs')">Все дни →</button>
     </div>
   `;
 
@@ -1046,15 +1216,62 @@ function renderHome() {
     `;
   });
 
-  // Recent 3 workouts
+  html += `</div>`; // Close Left Column
+
+  /* RIGHT COLUMN (Coach Insights & Recent Workouts) */
+  html += `<div class="desktop-col">`;
+
+  // Coach Insights Card
+  if (coachSuggestions.length > 0) {
+    html += `
+      <div class="card coach">
+        <div class="card-header">
+          <div class="card-title">💡 Рекомендации тренера</div>
+          <span class="badge overload">Прогрессия</span>
+        </div>
+        <p class="card-desc" style="margin-bottom:12px">Анализ нагрузок по мировым методикам (NSCA 2-for-2, Double Progression):</p>
+    `;
+    coachSuggestions.slice(0, 2).forEach(s => {
+      html += `
+        <div class="coach-tip-box ${s.advice.status === 'upgrade' ? 'upgrade' : 'plateau'}">
+          <span class="coach-tip-icon">${s.advice.status === 'upgrade' ? '🚀' : '⚠️'}</span>
+          <div>
+            <b>${esc(s.ex.name)}:</b> ${s.advice.text}
+          </div>
+        </div>
+      `;
+    });
+    html += `
+        <button class="btn sm ghost" style="margin-top:6px" onclick="setView('coach')">Вся аналитика весов →</button>
+      </div>
+    `;
+  }
+
+  // Overview stats
+  if (stats) {
+    html += `
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">Тоннаж за 4 нед</div>
+          <div class="stat-val">${stats.tonnage4w}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Тренировок / нед</div>
+          <div class="stat-val">${stats.perWeek} <b>в ср.</b></div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Recent workouts
   const recentWorkouts = state.workoutIds
     .map(id => state.workouts[id])
     .filter(Boolean)
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 3);
+    .slice(0, 4);
 
   html += `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin:22px 2px 10px">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 2px 6px">
       <span style="font-size:15px; font-weight:700">Недавние тренировки</span>
       <button class="chip" onclick="setView('history')">Вся история</button>
     </div>
@@ -1085,10 +1302,91 @@ function renderHome() {
     html += `</div>`;
   }
 
+  html += `</div>`; // Close Right Column
+  html += `</div>`; // Close Desktop Grid
+
   app.innerHTML = html;
 }
 
-/* ---------- 6.2 VIEW: WORKOUT (ACTIVE SESSION) ---------- */
+/* ---------- 6.2 VIEW: COACH & PROGRESSION ANALYTICS ---------- */
+function renderCoachView() {
+  const allExercises = [];
+  state.programs.forEach(p => p.exercises.forEach(e => {
+    if (!allExercises.some(x => x.id === e.id)) allExercises.push(e);
+  }));
+
+  const items = allExercises.map(e => ({
+    ex: e,
+    advice: getExerciseProgressionAdvice(e.id),
+    history: getExerciseHistory(e.id)
+  }));
+
+  let html = renderHeaderTop();
+
+  html += `
+    <div class="card highlight">
+      <div class="card-header">
+        <div class="card-title">🧠 Умная аналитика прогрессии нагрузок</div>
+      </div>
+      <p class="card-desc">
+        Основано на правилах <b>NSCA (National Strength & Conditioning Association)</b> и методике <b>двойной прогрессии (Double Progression)</b>:
+        если вес выполняется 2 тренировки подряд в максимальном целевом диапазоне повторений — алгоритм рекомендует шаг в весе (+2.5 кг для верха тела, +5 кг для ног).
+      </p>
+    </div>
+  `;
+
+  if (!Object.keys(state.workouts).length) {
+    html += `
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-icon">📊</div>
+          <p>Для персональных рекомендаций нужно провести хотя бы 1-2 тренировки.<br>Алгоритм начнёт отслеживать динамику и подскажет идеальный момент для накидывания блинов!</p>
+        </div>
+      </div>
+    `;
+    app.innerHTML = html;
+    return;
+  }
+
+  html += `<div style="display:flex; flex-direction:column; gap:12px; margin-top:14px">`;
+
+  items.forEach(item => {
+    const { ex, advice, history } = item;
+    const latest = history.length ? history[0] : null;
+
+    html += `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${esc(ex.name)}</div>
+            <div style="font-size:12.5px; color:var(--txt-muted); margin-top:2px">
+              ${latest ? `Текущий рабочий: <b>${latest.maxWeight} кг</b> (лучший подход: ${latest.topSet.w}×${latest.topSet.r})` : 'Нет данных в истории'}
+            </div>
+          </div>
+          <span class="badge ${advice.status === 'upgrade' ? 'overload' : (advice.status === 'plateau' ? 'plateau' : 'today')}">
+            ${advice.status === 'upgrade' ? '🚀 Пора повышать' : (advice.status === 'plateau' ? '⚠️ Плато' : '🎯 Закрепление')}
+          </span>
+        </div>
+
+        <div class="coach-tip-box ${advice.status === 'upgrade' ? 'upgrade' : (advice.status === 'plateau' ? 'plateau' : '')}">
+          <span class="coach-tip-icon">${advice.status === 'upgrade' ? '🔥' : (advice.status === 'plateau' ? '⚠️' : '💡')}</span>
+          <div>${advice.text}</div>
+        </div>
+
+        ${history.length > 1 ? `
+          <div style="font-size:12px; color:var(--txt-muted); margin-top:8px">
+            История последних весов: ${history.slice(0, 4).map(h => `${h.maxWeight} кг (${h.topSet.r} повт)`).join(' → ')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  app.innerHTML = html;
+}
+
+/* ---------- 6.3 VIEW: WORKOUT (ACTIVE SESSION) ---------- */
 function renderWorkoutView() {
   if (!state.active) {
     setView('home');
@@ -1098,14 +1396,13 @@ function renderWorkoutView() {
   const cur = state.active;
   const prog = state.programs.find(p => p.id === cur.programId) || { name: cur.programName || 'Тренировка', exercises: [] };
 
-  let html = `
-    <div class="header-top">
-      <div class="brand-group">
-        <button class="iconbtn sm" onclick="setView('home')">←</button>
-        <div>
-          <div class="brand-title" style="font-size:18px">${esc(cur.programName || prog.name)}</div>
-          <div class="brand-subtitle">Сессия активна · автосохранение включено</div>
-        </div>
+  let html = renderHeaderTop();
+
+  html += `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+      <div>
+        <h2 style="font-size:20px; font-weight:800">${esc(cur.programName || prog.name)}</h2>
+        <div style="font-size:12.5px; color:var(--txt-muted)">Сессия активна · автосохранение включено</div>
       </div>
       <button class="btn sm" style="width:auto" onclick="finishCurrentWorkout()">Завершить ✓</button>
     </div>
@@ -1114,24 +1411,25 @@ function renderWorkoutView() {
   // Exercises blocks
   cur.exercises.forEach(ex => {
     const sets = cur.entries[ex.id] || [];
-    const prevTop = findPreviousExTop(ex.id, cur.startedAt);
+    const advice = getExerciseProgressionAdvice(ex.id, cur.startedAt);
 
     html += `
       <div class="exblk" id="exblk_${ex.id}">
         <div class="exblk-hd">
           <div>
             <div class="ex-name">${esc(ex.name)}</div>
-            <div class="ex-sub">Подходов выполнено: <b>${sets.filter(s => s.done).length}</b> из ${sets.length}</div>
+            <div class="ex-sub">Подходов: <b>${sets.filter(s => s.done).length}</b> из ${sets.length}</div>
           </div>
           <button class="iconbtn sm" onclick="removeExerciseFromSession('${ex.id}')" title="Убрать из этой тренировки">✕</button>
         </div>
     `;
 
-    if (prevTop) {
+    // Coach advice box directly inside exercise during workout
+    if (advice && advice.text) {
       html += `
-        <div class="pr-hint">
-          <span>🏆 Прошлый рекорд:</span>
-          <b>${prevTop.w} кг × ${prevTop.r} повт</b>
+        <div class="coach-tip-box ${advice.status === 'upgrade' ? 'upgrade' : (advice.status === 'plateau' ? 'plateau' : '')}">
+          <span class="coach-tip-icon">${advice.status === 'upgrade' ? '🚀' : '💡'}</span>
+          <div>${advice.text}</div>
         </div>
       `;
     }
@@ -1181,16 +1479,13 @@ function updateSetData(exId, setIdx, field, val) {
   state.active.entries[exId][setIdx][field] = isNaN(num) ? '' : num;
 }
 
-function onSetFieldChange() {
-  saveActiveWorkout();
-}
+function onSetFieldChange() { saveActiveWorkout(); }
 
 function addSetToExercise(exId) {
   if (!state.active) return;
   if (!state.active.entries[exId]) state.active.entries[exId] = [];
   const sets = state.active.entries[exId];
 
-  // Default weight / reps from last set or previous workout
   let lastW = '';
   let lastR = '';
   if (sets.length > 0) {
@@ -1198,10 +1493,10 @@ function addSetToExercise(exId) {
     lastW = prevSet.w || '';
     lastR = prevSet.r || '';
   } else {
-    const prevTop = findPreviousExTop(exId, state.active.startedAt);
-    if (prevTop) {
-      lastW = prevTop.w;
-      lastR = prevTop.r;
+    const history = getExerciseHistory(exId, state.active.startedAt);
+    if (history.length) {
+      lastW = history[0].topSet.w;
+      lastR = history[0].topSet.r;
     }
   }
 
@@ -1253,7 +1548,7 @@ function startWorkoutSession(programId) {
   if (!prog) return;
 
   if (state.active) {
-    if (!confirm('У тебя уже начата тренировка! Начать заново новую?')) {
+    if (!confirm('У тебя уже начата тренировка! Начать новую с нуля?')) {
       setView('workout');
       return;
     }
@@ -1268,12 +1563,11 @@ function startWorkoutSession(programId) {
     entries: {}
   };
 
-  // Pre-seed sets
   prog.exercises.forEach(ex => {
-    const prevTop = findPreviousExTop(ex.id, Date.now());
-    state.active.entries[ex.id] = [
-      { w: prevTop ? prevTop.w : '', r: prevTop ? prevTop.r : '', done: false }
-    ];
+    const history = getExerciseHistory(ex.id, Date.now());
+    const topW = history.length ? history[0].topSet.w : '';
+    const topR = history.length ? history[0].topSet.r : '';
+    state.active.entries[ex.id] = [{ w: topW, r: topR, done: false }];
   });
 
   saveActiveWorkout();
@@ -1281,15 +1575,12 @@ function startWorkoutSession(programId) {
   setView('workout');
 }
 
-function resumeActiveWorkout() {
-  setView('workout');
-}
+function resumeActiveWorkout() { setView('workout'); }
 
 async function finishCurrentWorkout() {
   if (!state.active) return;
   const cur = state.active;
 
-  // Filter and tally completed sets
   let totalKg = 0;
   let totalSets = 0;
   let totalReps = 0;
@@ -1380,30 +1671,26 @@ function confirmAddExerciseToSession() {
   renderWorkoutView();
 }
 
-/* ---------- 6.3 VIEW: PROGRAMS & SCHEDULE MANAGEMENT ---------- */
+/* ---------- 6.4 VIEW: PROGRAMS MANAGEMENT ---------- */
 function renderProgramsView() {
-  let html = `
-    <div class="header-top">
-      <div class="brand-group">
-        <div class="brand-dot"></div>
-        <div>
-          <div class="brand-title">Расписание и программы</div>
-          <div class="brand-subtitle">Кастомизируй дни и упражнения</div>
-        </div>
-      </div>
-      <button class="iconbtn" onclick="openNewProgramModal()" title="Добавить">+ </button>
-    </div>
+  let html = renderHeaderTop();
+
+  html += `
     <div class="card highlight">
       <div class="card-header">
         <div class="card-title">💡 Твоя тренировочная неделя</div>
       </div>
       <p class="card-desc">Базовый сплит настроен на <b>Понедельник, Среду и Пятницу</b>. Ты можешь менять любые упражнения, переименовывать или создавать свои дни.</p>
     </div>
+    <div style="margin-bottom:14px">
+      <button class="btn ghost" onclick="openNewProgramModal()">+ Создать новую тренировку / день</button>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:14px">
   `;
 
   state.programs.forEach(prog => {
     html += `
-      <div class="card">
+      <div class="card" style="margin-bottom:0">
         <div class="card-header">
           <div>
             <span class="badge blue">${DAY_NAMES[prog.dayCode] || 'Произвольный'}</span>
@@ -1432,12 +1719,7 @@ function renderProgramsView() {
     `;
   });
 
-  html += `
-    <div style="margin-top:16px">
-      <button class="btn ghost" onclick="openNewProgramModal()">+ Создать новую тренировку / день</button>
-    </div>
-  `;
-
+  html += `</div>`;
   app.innerHTML = html;
 }
 
@@ -1590,25 +1872,22 @@ function deleteProgram(progId) {
   render();
 }
 
-/* ---------- 6.4 VIEW: PROGRESS & CHARTS ---------- */
+/* ---------- 6.5 VIEW: PROGRESS & CHARTS ---------- */
 let selectedStatExId = null;
 
 function renderStatsView() {
   const allWorkouts = Object.values(state.workouts).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  // Collect all unique exercises that have been performed
   const performedMap = {};
   allWorkouts.forEach(w => {
     if (w.entries) {
       Object.keys(w.entries).forEach(exId => {
         const matchingEx = (w.exercises || []).find(e => e.id === exId);
-        const name = matchingEx ? matchingEx.name : exId;
-        performedMap[exId] = name;
+        performedMap[exId] = matchingEx ? matchingEx.name : exId;
       });
     }
   });
 
-  // Also include exercises from existing programs so user can pick any
   state.programs.forEach(p => {
     p.exercises.forEach(e => {
       if (!performedMap[e.id]) performedMap[e.id] = e.name;
@@ -1620,17 +1899,7 @@ function renderStatsView() {
     selectedStatExId = exKeys[0] || null;
   }
 
-  let html = `
-    <div class="header-top">
-      <div class="brand-group">
-        <div class="brand-dot"></div>
-        <div>
-          <div class="brand-title">Статистика прогресса</div>
-          <div class="brand-subtitle">Рост весов и тоннажа по датам</div>
-        </div>
-      </div>
-    </div>
-  `;
+  let html = renderHeaderTop();
 
   if (!allWorkouts.length) {
     html += `
@@ -1655,7 +1924,6 @@ function renderStatsView() {
     </div>
   `;
 
-  // Build chart data for the selected exercise
   const exerciseData = [];
   allWorkouts.forEach(w => {
     const sets = (w.entries && w.entries[selectedStatExId]) || [];
@@ -1681,11 +1949,11 @@ function renderStatsView() {
       </div>
     `;
   } else {
-    // Current Best (PR)
     const bestPR = Math.max(...exerciseData.map(d => d.maxWeight));
     const latestWeight = exerciseData[exerciseData.length - 1].maxWeight;
     const firstWeight = exerciseData[0].maxWeight;
     const diff = latestWeight - firstWeight;
+    const advice = getExerciseProgressionAdvice(selectedStatExId);
 
     html += `
       <div class="stats-grid">
@@ -1699,6 +1967,12 @@ function renderStatsView() {
             ${diff > 0 ? '+' + diff : diff} <b>кг</b>
           </div>
         </div>
+      </div>
+
+      <!-- Coach advice for this exercise -->
+      <div class="coach-tip-box ${advice.status === 'upgrade' ? 'upgrade' : (advice.status === 'plateau' ? 'plateau' : '')}">
+        <span class="coach-tip-icon">${advice.status === 'upgrade' ? '🚀' : (advice.status === 'plateau' ? '⚠️' : '💡')}</span>
+        <div><b>Рекомендация тренера:</b> ${advice.text}</div>
       </div>
 
       <div class="chart-container">
@@ -1741,8 +2015,8 @@ function onSelectStatExercise(exId) {
 
 function renderSvgChart(data) {
   if (!data || data.length === 0) return '';
-  const w = 460;
-  const h = 130;
+  const w = 500;
+  const h = 140;
   const padding = 28;
 
   const weights = data.map(d => d.maxWeight);
@@ -1764,19 +2038,15 @@ function renderSvgChart(data) {
     <svg class="chart-svg" viewBox="0 0 ${w} ${h}">
       <defs>
         <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2ecc71" stop-opacity="0.4"/>
+          <stop offset="0%" stop-color="#2ecc71" stop-opacity="0.35"/>
           <stop offset="100%" stop-color="#2ecc71" stop-opacity="0.0"/>
         </linearGradient>
       </defs>
-      <!-- Horizontal grid line -->
       <line x1="${padding}" y1="${h - padding}" x2="${w - padding}" y2="${h - padding}" stroke="#1b3d2b" stroke-width="1"/>
       <line x1="${padding}" y1="${padding}" x2="${w - padding}" y2="${padding}" stroke="#153323" stroke-dasharray="3,3" stroke-width="1"/>
-
-      <!-- Path line -->
       <path d="${pathD}" fill="none" stroke="#2ecc71" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
   `;
 
-  // Draw points and labels
   points.forEach(p => {
     svg += `
       <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="#f0f7f3" stroke="#2ecc71" stroke-width="2.5"/>
@@ -1789,23 +2059,19 @@ function renderSvgChart(data) {
   return svg;
 }
 
-/* ---------- 6.5 VIEW: HISTORY ---------- */
+/* ---------- 6.6 VIEW: HISTORY ---------- */
 function renderHistoryView() {
   const list = state.workoutIds
     .map(id => state.workouts[id])
     .filter(Boolean)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  let html = `
-    <div class="header-top">
-      <div class="brand-group">
-        <div class="brand-dot"></div>
-        <div>
-          <div class="brand-title">История тренировок</div>
-          <div class="brand-subtitle">Всего сессий: ${list.length}</div>
-        </div>
-      </div>
-      ${list.length ? `<button class="chip" onclick="confirmClearHistory()">Очистить</button>` : ''}
+  let html = renderHeaderTop();
+
+  html += `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px">
+      <div style="font-size:15px; font-weight:700">Всего сессий: ${list.length}</div>
+      ${list.length ? `<button class="chip" onclick="confirmClearHistory()">Очистить всё</button>` : ''}
     </div>
   `;
 
@@ -1905,7 +2171,7 @@ async function confirmClearHistory() {
 }
 
 /* =========================================================
-   7. Rest Timer Logic
+   7. Rest Timer
    ========================================================= */
 const restBar = document.getElementById('rest-bar');
 const restTime = document.getElementById('restTime');
@@ -1976,30 +2242,27 @@ restTime.onclick = () => {
 };
 
 /* =========================================================
-   8. Router & Initial Boot
+   8. Boot
    ========================================================= */
 function render() {
   if (curView === 'home') renderHome();
   else if (curView === 'workout') renderWorkoutView();
   else if (curView === 'programs') renderProgramsView();
+  else if (curView === 'coach') renderCoachView();
   else if (curView === 'stats') renderStatsView();
   else if (curView === 'history') renderHistoryView();
 }
 
 async function boot() {
   try {
-    // 1. Load programs
     const rawProgs = await Storage.getItem('fit_programs');
     if (rawProgs) {
       try {
         const parsed = typeof rawProgs === 'string' ? JSON.parse(rawProgs) : rawProgs;
-        if (Array.isArray(parsed) && parsed.length) {
-          state.programs = parsed;
-        }
+        if (Array.isArray(parsed) && parsed.length) state.programs = parsed;
       } catch (e) {}
     }
 
-    // 2. Load active workout if exists
     const rawActive = await Storage.getItem('fit_active');
     if (rawActive) {
       try {
@@ -2007,22 +2270,17 @@ async function boot() {
       } catch (e) {}
     }
 
-    // 3. Load workout index & items
     const rawIdx = await Storage.getItem('fit_idx');
     if (rawIdx) {
       try {
         const idx = typeof rawIdx === 'string' ? JSON.parse(rawIdx) : rawIdx;
-        if (Array.isArray(idx)) {
-          state.workoutIds = idx;
-        }
+        if (Array.isArray(idx)) state.workoutIds = idx;
       } catch (e) {}
     }
 
-    // Batch load all workouts by individual keys (w_<id>)
     if (state.workoutIds.length) {
       const keys = state.workoutIds.map(id => 'w_' + id);
       const itemsMap = await Storage.getItems(keys);
-
       for (const id of state.workoutIds) {
         const key = 'w_' + id;
         if (itemsMap[key]) {
@@ -2033,40 +2291,11 @@ async function boot() {
         }
       }
     }
-
-    // 4. Migrate old single-key storage if legacy user
-    const legacyRaw = await Storage.getItem('sa_fit_v1');
-    if (legacyRaw && !state.workoutIds.length) {
-      try {
-        const legacy = JSON.parse(legacyRaw);
-        if (legacy && Array.isArray(legacy.history) && legacy.history.length) {
-          for (const oldW of legacy.history) {
-            const wid = oldW.id || genId('migrated');
-            const wObj = {
-              id: wid,
-              programId: oldW.programId || 'ppl',
-              programName: 'Тренировка',
-              date: oldW.date || new Date().toISOString(),
-              totalKg: oldW.totalKg || 0,
-              totalSets: oldW.exercises || 3,
-              entries: oldW.entries || {}
-            };
-            await saveCompletedWorkout(wObj);
-          }
-        }
-      } catch (e) {}
-    }
   } catch (err) {
     console.error('Storage boot error:', err);
   }
 
-  // Initial view
-  if (state.active) {
-    curView = 'workout';
-  } else {
-    curView = 'home';
-  }
-
+  curView = state.active ? 'workout' : 'home';
   buildRestPresetChips();
   render();
 }
