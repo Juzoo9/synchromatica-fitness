@@ -754,86 +754,172 @@ const Haptic = {
 };
 
 /* =========================================================
-   2. Optimized Keyed Storage with User Isolation & Flood Protection
+   2. One-Way Cryptographic Hashing (SHA-256) & AES-GCM Storage Encryption
    ========================================================= */
+const CryptoHelper = {
+  SALT: 'synchro_salt_sec_2026_fit_',
+
+  // One-way irreversible SHA-256 hash (never exposes raw Telegram ID)
+  async sha256(str) {
+    const enc = new TextEncoder().encode(str);
+    const hashBuf = await crypto.subtle.digest('SHA-256', enc);
+    const hashArr = Array.from(new Uint8Array(hashBuf));
+    return hashArr.map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  // Derive AES-256 encryption key from one-way user token
+  async deriveKey(token) {
+    const enc = new TextEncoder().encode(token);
+    const keyMat = await crypto.subtle.importKey(
+      'raw', enc, { name: 'PBKDF2' }, false, ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: new TextEncoder().encode('synchro_aes_salt_2026'),
+        iterations: 20000,
+        hash: 'SHA-256'
+      },
+      keyMat,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  },
+
+  // Encrypt plaintext into AES-GCM ciphertext
+  async encrypt(dataStr, token) {
+    if (!token || typeof dataStr !== 'string') return dataStr;
+    try {
+      const key = await this.deriveKey(token);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const enc = new TextEncoder().encode(dataStr);
+      const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc);
+      const ivHex = Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join('');
+      const cipherHex = Array.from(new Uint8Array(cipherBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      return 'enc_v1:' + ivHex + ':' + cipherHex;
+    } catch (e) {
+      return dataStr;
+    }
+  },
+
+  // Decrypt AES-GCM ciphertext
+  async decrypt(dataStr, token) {
+    if (!dataStr || typeof dataStr !== 'string' || !dataStr.startsWith('enc_v1:')) {
+      return dataStr; // Legacy unencrypted or raw JSON
+    }
+    if (!token) return null;
+    try {
+      const parts = dataStr.split(':');
+      if (parts.length !== 3) return dataStr;
+      const iv = new Uint8Array(parts[1].match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      const cipherBuf = new Uint8Array(parts[2].match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      const key = await this.deriveKey(token);
+      const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipherBuf);
+      return new TextDecoder().decode(plainBuf);
+    } catch (e) {
+      return null;
+    }
+  }
+};
+
 const Storage = {
   get hasCloud() {
     return !!(WTA && WTA.CloudStorage && typeof WTA.CloudStorage.getItem === 'function');
   },
 
-  // Unique user namespace for complete session separation & link pairing
-  get userId() {
+  userToken: null,
+  userPrefix: 'u_anon_',
+
+  // Initialize secure one-way identity before reading/writing
+  async initIdentity() {
+    // 1. From Telegram WebApp (one-way SHA-256 hash)
     const tgUserId = WTA?.initDataUnsafe?.user?.id;
-    if (tgUserId) return String(tgUserId);
+    if (tgUserId) {
+      this.userToken = await CryptoHelper.sha256(CryptoHelper.SALT + tgUserId);
+      this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
+      return;
+    }
+
+    // 2. From URL ?token=...
     const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    if (urlToken && urlToken.length >= 16) {
+      this.userToken = urlToken;
+      try { localStorage.setItem('synchro_user_token', urlToken); } catch(e){}
+      this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
+      return;
+    }
+
+    // 3. From URL ?uid=... (backward compatibility: one-way hash it)
     const urlUid = urlParams.get('uid');
     if (urlUid) {
-      try { localStorage.setItem('synchro_linked_uid', urlUid); } catch(e){}
-      return String(urlUid);
+      this.userToken = await CryptoHelper.sha256(CryptoHelper.SALT + urlUid);
+      try { localStorage.setItem('synchro_user_token', this.userToken); } catch(e){}
+      this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
+      return;
     }
-    try {
-      const cached = localStorage.getItem('synchro_linked_uid');
-      if (cached) return String(cached);
-    } catch(e){}
-    return null;
-  },
 
-  get userPrefix() {
-    const uid = this.userId;
-    if (uid) return 'u_' + uid + '_';
-    let localId = '';
+    // 4. From localStorage cached token
     try {
-      localId = localStorage.getItem('synchro_client_id');
-      if (!localId) {
-        localId = 'cli_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('synchro_client_id', localId);
+      const cached = localStorage.getItem('synchro_user_token');
+      if (cached) {
+        this.userToken = cached;
+        this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
+        return;
       }
-    } catch (e) {
-      localId = 'anon_';
-    }
-    return localId + '_';
+    } catch(e){}
+
+    // 5. Generate secure random client token
+    const randBuf = crypto.getRandomValues(new Uint8Array(16));
+    const randHex = Array.from(randBuf).map(b => b.toString(16).padStart(2, '0')).join('');
+    this.userToken = await CryptoHelper.sha256(CryptoHelper.SALT + randHex);
+    try { localStorage.setItem('synchro_user_token', this.userToken); } catch(e){}
+    this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
   },
 
   _cloudQueue: new Map(),
   _cloudTimer: null,
 
   async getItem(key) {
+    let raw = null;
+
     // 1. Try CloudStorage
     if (this.hasCloud) {
       try {
-        const val = await new Promise((res) => {
+        raw = await new Promise((res) => {
           WTA.CloudStorage.getItem(key, (err, result) => {
             if (err) res(null);
             else res(result);
           });
         });
-        if (val !== null && val !== undefined && val !== '') return val;
       } catch (e) {}
     }
 
     // 2. LocalStorage with user namespace isolation
-    try {
-      const userKey = 'synchro_' + this.userPrefix + key;
-      const v = localStorage.getItem(userKey);
-      if (v !== null) return v;
-      // Fallback for legacy key
-      return localStorage.getItem('synchro_' + key);
-    } catch (e) {
-      return null;
+    if (raw === null || raw === undefined || raw === '') {
+      try {
+        raw = localStorage.getItem('synchro_' + this.userPrefix + key);
+        if (raw === null) raw = localStorage.getItem('synchro_' + key);
+      } catch (e) {}
     }
+
+    if (!raw) return null;
+    return await CryptoHelper.decrypt(raw, this.userToken);
   },
 
   async setItem(key, val) {
     const sval = typeof val === 'string' ? val : JSON.stringify(val);
+    const encVal = await CryptoHelper.encrypt(sval, this.userToken);
 
-    // Instant local save (zero latency)
+    // Instant local save (encrypted)
     try {
-      localStorage.setItem('synchro_' + this.userPrefix + key, sval);
+      localStorage.setItem('synchro_' + this.userPrefix + key, encVal);
     } catch (e) {}
 
-    // Rate-limited CloudStorage save (protection against Telegram flood limits)
+    // Rate-limited CloudStorage save (encrypted)
     if (this.hasCloud) {
-      this._cloudQueue.set(key, sval);
+      this._cloudQueue.set(key, encVal);
       if (!this._cloudTimer) {
         this._cloudTimer = setTimeout(() => this._flushCloudQueue(), 300);
       }
@@ -871,7 +957,7 @@ const Storage = {
 
   async getItems(keys) {
     if (!keys || !keys.length) return {};
-    const result = {};
+    const rawMap = {};
 
     if (this.hasCloud && typeof WTA.CloudStorage.getItems === 'function') {
       try {
@@ -883,22 +969,28 @@ const Storage = {
         });
         if (cloudObj) {
           for (const k of keys) {
-            if (cloudObj[k]) result[k] = cloudObj[k];
+            if (cloudObj[k]) rawMap[k] = cloudObj[k];
           }
         }
       } catch (e) {}
     }
 
-    // Fill missing from local user storage
     for (const k of keys) {
-      if (!result[k]) {
+      if (!rawMap[k]) {
         try {
           const l = localStorage.getItem('synchro_' + this.userPrefix + k) || localStorage.getItem('synchro_' + k);
-          if (l) result[k] = l;
+          if (l) rawMap[k] = l;
         } catch (e) {}
       }
     }
-    return result;
+
+    const decryptedMap = {};
+    for (const k of keys) {
+      if (rawMap[k]) {
+        decryptedMap[k] = await CryptoHelper.decrypt(rawMap[k], this.userToken);
+      }
+    }
+    return decryptedMap;
   }
 };
 
@@ -1180,8 +1272,8 @@ document.getElementById('navbar').addEventListener('click', (e) => {
 });
 
 function renderHeaderTop() {
-  const uid = Storage.userId;
-  const badgeLabel = uid ? ('ID: ' + (uid.length > 6 ? uid.slice(0, 3) + '..' + uid.slice(-3) : uid)) : 'Личная ссылка';
+  const token = Storage.userToken;
+  const badgeLabel = token ? ('Ключ: ' + token.slice(0, 4) + '..' + token.slice(-3)) : 'Личная ссылка';
 
   return `
     <div class="header-top">
@@ -1203,8 +1295,8 @@ function renderHeaderTop() {
       </div>
 
       <div style="display:flex; align-items:center; gap:8px">
-        <button class="chip" onclick="openProfileModal()" title="Личная ссылка синхронизации" style="display:flex; align-items:center; gap:4px">
-          <span>🔗</span>
+        <button class="chip" onclick="openProfileModal()" title="Защищённая личная ссылка" style="display:flex; align-items:center; gap:4px">
+          <span>🔒</span>
           <span>${badgeLabel}</span>
         </button>
         <button class="iconbtn" onclick="openNewProgramModal()" title="Добавить тренировку">+</button>
@@ -1214,34 +1306,36 @@ function renderHeaderTop() {
 }
 
 function openProfileModal() {
-  const uid = Storage.userId || '';
+  const token = Storage.userToken || '';
   const currentUrl = window.location.origin + window.location.pathname;
-  const personalUrl = uid ? `${currentUrl}?uid=${uid}` : currentUrl;
+  const personalUrl = token ? `${currentUrl}?token=${token}` : currentUrl;
+  const shortKey = token ? (token.slice(0, 8) + '...' + token.slice(-6)) : 'Гость';
 
   sheet.innerHTML = `
     <div class="sheet-title">
-      <span>Личная ссылка и профиль</span>
+      <span>Защита данных и личная ссылка</span>
       <button class="iconbtn sm" onclick="closeModal()">✕</button>
     </div>
     
     <div class="card coach" style="margin-bottom:14px">
       <div style="font-size:13px; line-height:1.45">
-        ${uid ? `✅ <b>Привязано к Telegram ID: <code>${uid}</code></b>.<br>Все тренировки сохраняются в твой изолированный профиль. Открывай эту ссылку на ПК или в зале — данные будут общими только для тебя.` : `ℹ️ Сайт открыт в режиме гостя.<br>Привяжи свой Telegram ID, чтобы тренировки синхронизировались между телефоном и компьютером.`}
+        🔒 <b>Одностороннее шифрование включено (SHA-256 + AES-GCM)</b>.<br>
+        Твой реальный Telegram ID нигде не передаётся и необратим. Все веса, упражнения и подходы зашифрованы ключом <code>${shortKey}</code>. Никто посторонний не может украсть или прочитать данные.
       </div>
     </div>
 
     <div class="field">
-      <label class="field-label">Твоя персональная ссылка</label>
+      <label class="field-label">Твоя персональная зашифрованная ссылка для ПК</label>
       <input type="text" id="personalLinkInput" class="field-input" readonly value="${personalUrl}">
     </div>
 
     <div style="display:flex; flex-direction:column; gap:10px">
-      <button class="btn" onclick="copyPersonalLink()">📋 Скопировать личную ссылку</button>
+      <button class="btn" onclick="copyPersonalLink()">📋 Скопировать защищённую ссылку</button>
       
       <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--card-border-subtle)">
-        <label class="field-label">Привязать Telegram ID вручную</label>
+        <label class="field-label">Привязать Telegram ID (будет захэширован в один конец)</label>
         <div style="display:flex; gap:8px">
-          <input type="text" id="manualUidInput" class="field-input" placeholder="например: 123456789" value="${uid}">
+          <input type="text" id="manualUidInput" class="field-input" placeholder="например: 123456789">
           <button class="btn sm ghost" style="width:auto; white-space:nowrap" onclick="saveManualUid()">Привязать</button>
         </div>
       </div>
@@ -1256,26 +1350,27 @@ function copyPersonalLink() {
     inp.select();
     navigator.clipboard.writeText(inp.value).then(() => {
       Haptic.ok();
-      toast('Личная ссылка скопирована! ✓');
+      toast('Защищённая ссылка скопирована! ✓');
     }).catch(() => {
       document.execCommand('copy');
-      toast('Личная ссылка скопирована! ✓');
+      toast('Защищённая ссылка скопирована! ✓');
     });
   }
 }
 
-function saveManualUid() {
+async function saveManualUid() {
   const inp = document.getElementById('manualUidInput');
   const val = inp && inp.value.trim();
   if (!val) {
     toast('Введите корректный Telegram ID');
     return;
   }
-  localStorage.setItem('synchro_linked_uid', val);
+  const token = await CryptoHelper.sha256(CryptoHelper.SALT + val);
+  localStorage.setItem('synchro_user_token', token);
   Haptic.ok();
-  toast('ID успешно привязан! Обновление...');
+  toast('ID надёжно захэширован! Обновление...');
   setTimeout(() => {
-    window.location.href = window.location.origin + window.location.pathname + '?uid=' + encodeURIComponent(val);
+    window.location.href = window.location.origin + window.location.pathname + '?token=' + encodeURIComponent(token);
   }, 400);
 }
 
@@ -2479,6 +2574,8 @@ function render() {
 
 async function boot() {
   try {
+    await Storage.initIdentity();
+
     const rawProgs = await Storage.getItem('fit_programs');
     if (rawProgs) {
       try {

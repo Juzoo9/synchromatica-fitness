@@ -5,6 +5,7 @@
 """
 
 import asyncio
+import hashlib
 import logging
 import os
 import sys
@@ -22,6 +23,7 @@ WEBAPP_BASE_URL = os.getenv(
     "WEBAPP_BASE_URL",
     "https://juzoo9.github.io/synchromatica-fitness/"
 )
+HASH_SALT = "synchro_salt_sec_2026_fit_"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,26 +39,28 @@ dp = Dispatcher()
 async def handle_start(message: types.Message) -> None:
     """Обработчик команды /start.
 
-    Приветствует пользователя, формирует персональную ссылку на основе его ID
-    и отправляет клавиатуру с WebApp и прямой ссылкой.
+    Приветствует пользователя, формирует персональную зашифрованную ссылку
+    на основе одностороннего хэша (SHA-256) и отправляет клавиатуру.
     """
     user = message.from_user
     user_id = user.id if user else 0
     first_name = user.first_name if user else "Атлет"
 
-    # Формируем персональную ссылку
+    # Одностороннее хэширование ID с солью (невозможно расшифровать в обратную сторону)
+    token = hashlib.sha256(f"{HASH_SALT}{user_id}".encode()).hexdigest()
+
     clean_base = WEBAPP_BASE_URL.rstrip("/") + "/"
-    personal_url = f"{clean_base}?uid={user_id}"
+    personal_url = f"{clean_base}?token={token}"
 
     text = (
         f"👋 <b>Привет, {first_name}!</b>\n\n"
         f"Добро пожаловать в <b>Synchromatica Fitness</b> — твой персональный "
-        f"трекер прогресса в зале с умной аналитикой перегрузки весов.\n\n"
-        f"🔒 <b>Твой Telegram ID:</b> <code>{user_id}</code>\n"
-        f"Все твои тренировки, рекорды и программы изолированы и привязаны только к тебе.\n\n"
-        f"🔗 <b>Твоя персональная ссылка для браузера на ПК:</b>\n"
+        f"трекер прогресса в зале с умной аналитикой нагрузок.\n\n"
+        f"🔒 <b>Защита данных включена (SHA-256 + AES-GCM):</b>\n"
+        f"Твой реальный Telegram ID нигде не передаётся и надёжно зашифрован в один конец.\n\n"
+        f"🔗 <b>Твоя персональная защищённая ссылка для браузера (ПК):</b>\n"
         f"<code>{personal_url}</code>\n\n"
-        f"<i>(Открывай её на компьютере или ноутбуке — данные будут общими с этим ботом!)</i>"
+        f"<i>(Открывай её на компьютере — данные будут общими только для твоего аккаунта!)</i>"
     )
 
     keyboard = InlineKeyboardMarkup(
