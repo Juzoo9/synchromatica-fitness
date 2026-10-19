@@ -754,14 +754,35 @@ const Haptic = {
 };
 
 /* =========================================================
-   2. Optimized Keyed Storage
+   2. Optimized Keyed Storage with User Isolation & Flood Protection
    ========================================================= */
 const Storage = {
   get hasCloud() {
     return !!(WTA && WTA.CloudStorage && typeof WTA.CloudStorage.getItem === 'function');
   },
 
+  // Unique user namespace for complete session separation
+  get userPrefix() {
+    const tgUserId = WTA?.initDataUnsafe?.user?.id;
+    if (tgUserId) return 'u_' + tgUserId + '_';
+    let localId = '';
+    try {
+      localId = localStorage.getItem('synchro_client_id');
+      if (!localId) {
+        localId = 'cli_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('synchro_client_id', localId);
+      }
+    } catch (e) {
+      localId = 'anon_';
+    }
+    return localId + '_';
+  },
+
+  _cloudQueue: new Map(),
+  _cloudTimer: null,
+
   async getItem(key) {
+    // 1. Try CloudStorage
     if (this.hasCloud) {
       try {
         const val = await new Promise((res) => {
@@ -773,7 +794,13 @@ const Storage = {
         if (val !== null && val !== undefined && val !== '') return val;
       } catch (e) {}
     }
+
+    // 2. LocalStorage with user namespace isolation
     try {
+      const userKey = 'synchro_' + this.userPrefix + key;
+      const v = localStorage.getItem(userKey);
+      if (v !== null) return v;
+      // Fallback for legacy key
       return localStorage.getItem('synchro_' + key);
     } catch (e) {
       return null;
@@ -782,14 +809,32 @@ const Storage = {
 
   async setItem(key, val) {
     const sval = typeof val === 'string' ? val : JSON.stringify(val);
+
+    // Instant local save (zero latency)
     try {
-      localStorage.setItem('synchro_' + key, sval);
+      localStorage.setItem('synchro_' + this.userPrefix + key, sval);
     } catch (e) {}
 
+    // Rate-limited CloudStorage save (protection against Telegram flood limits)
     if (this.hasCloud) {
+      this._cloudQueue.set(key, sval);
+      if (!this._cloudTimer) {
+        this._cloudTimer = setTimeout(() => this._flushCloudQueue(), 300);
+      }
+    }
+  },
+
+  async _flushCloudQueue() {
+    this._cloudTimer = null;
+    if (!this.hasCloud || this._cloudQueue.size === 0) return;
+
+    const entries = Array.from(this._cloudQueue.entries());
+    this._cloudQueue.clear();
+
+    for (const [k, v] of entries) {
       try {
         await new Promise((res) => {
-          WTA.CloudStorage.setItem(key, sval, (err) => res(!err));
+          WTA.CloudStorage.setItem(k, v, (err) => res(!err));
         });
       } catch (e) {}
     }
@@ -797,9 +842,11 @@ const Storage = {
 
   async removeItem(key) {
     try {
+      localStorage.removeItem('synchro_' + this.userPrefix + key);
       localStorage.removeItem('synchro_' + key);
     } catch (e) {}
     if (this.hasCloud) {
+      this._cloudQueue.delete(key);
       try {
         WTA.CloudStorage.removeItem(key, () => {});
       } catch (e) {}
@@ -826,10 +873,11 @@ const Storage = {
       } catch (e) {}
     }
 
+    // Fill missing from local user storage
     for (const k of keys) {
       if (!result[k]) {
         try {
-          const l = localStorage.getItem('synchro_' + k);
+          const l = localStorage.getItem('synchro_' + this.userPrefix + k) || localStorage.getItem('synchro_' + k);
           if (l) result[k] = l;
         } catch (e) {}
       }
@@ -2069,9 +2117,12 @@ function renderHistoryView() {
   let html = renderHeaderTop();
 
   html += `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:8px; flex-wrap:wrap">
       <div style="font-size:15px; font-weight:700">Всего сессий: ${list.length}</div>
-      ${list.length ? `<button class="chip" onclick="confirmClearHistory()">Очистить всё</button>` : ''}
+      <div style="display:flex; gap:6px">
+        <button class="chip" onclick="openBackupModal()">📥 Резервная копия</button>
+        ${list.length ? `<button class="chip" onclick="confirmClearHistory()">Очистить всё</button>` : ''}
+      </div>
     </div>
   `;
 
@@ -2103,6 +2154,88 @@ function renderHistoryView() {
   }
 
   app.innerHTML = html;
+}
+
+function openBackupModal() {
+  sheet.innerHTML = `
+    <div class="sheet-title">
+      <span>Резервная копия данных</span>
+      <button class="iconbtn sm" onclick="closeModal()">✕</button>
+    </div>
+    <p class="card-desc" style="margin-bottom:14px">
+      Все твои тренировки изолированы и хранятся на твоем аккаунте. Ты можешь скачать полный JSON-файл бэкапа или восстановить данные на любом устройстве.
+    </p>
+
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <button class="btn" onclick="exportBackupJson()">📥 Скачать бэкап (JSON)</button>
+      
+      <div style="margin-top:10px">
+        <label class="field-label">Восстановить из файла</label>
+        <input type="file" id="importJsonFileInput" accept=".json" class="field-input" onchange="importBackupJson(event)">
+      </div>
+    </div>
+  `;
+  modal.classList.add('show');
+}
+
+function exportBackupJson() {
+  const exportData = {
+    app: 'synchromatica-fitness',
+    exportedAt: new Date().toISOString(),
+    programs: state.programs,
+    workoutIds: state.workoutIds,
+    workouts: state.workouts
+  };
+
+  const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportData, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute('href', dataStr);
+  downloadAnchor.setAttribute('download', `synchromatica_backup_${new Date().toISOString().slice(0, 10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+
+  Haptic.ok();
+  toast('Бэкап успешно скачан ✓');
+}
+
+function importBackupJson(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data || !data.programs || !Array.isArray(data.programs)) {
+        toast('Ошибка: Неверный формат файла бэкапа');
+        return;
+      }
+
+      state.programs = data.programs;
+      await savePrograms();
+
+      if (data.workouts && typeof data.workouts === 'object') {
+        state.workouts = data.workouts;
+        state.workoutIds = data.workoutIds || Object.keys(data.workouts);
+
+        await Storage.setItem('fit_idx', state.workoutIds);
+        for (const id of state.workoutIds) {
+          if (state.workouts[id]) {
+            await Storage.setItem('w_' + id, state.workouts[id]);
+          }
+        }
+      }
+
+      closeModal();
+      Haptic.ok();
+      toast('Данные успешно восстановлены! ✓');
+      render();
+    } catch (err) {
+      toast('Ошибка при чтении файла');
+    }
+  };
+  reader.readAsText(file);
 }
 
 function openWorkoutDetailModal(workoutId) {
