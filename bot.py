@@ -1,4 +1,10 @@
-"""Telegram-бот для фитнес-трекера Synchromatica.
+"""SYNCHROMATICA AI — TELEGRAM BOT & ARCHITECTURE
+Repository: https://github.com/Juzoo9/synchromatica-fitness
+Channel: https://t.me/synchromatica
+Author: https://t.me/DigitalCoinMainer
+Signature: SHA256:53796e6368726f6d61746963612d41492d32303236
+
+Telegram-бот для фитнес-трекера Synchromatica.
 
 Выдаёт персональную ссылку пользователю и открывает WebApp.
 Стек: Python 3.11+, aiogram 3.x.
