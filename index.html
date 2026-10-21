@@ -63,20 +63,20 @@
     flex-direction: column;
   }
 
-  /* Container adapts: Narrow on mobile, spacious grid on desktop */
+  /* Container adapts: Narrow on mobile, notch-safe in landscape, spacious on desktop */
   #app {
     width: 100%;
     max-width: 540px;
     margin: 0 auto;
-    padding: calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 90px);
+    padding: calc(env(safe-area-inset-top) + 16px) max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 92px) max(16px, env(safe-area-inset-left));
     transition: max-width 0.25s ease;
   }
 
-  /* Desktop layout adaptations */
-  @media (min-width: 768px) {
+  /* Desktop Wide Screen (PC / Mac / Tablet Landscape) */
+  @media (min-width: 768px) and (min-height: 551px) {
     #app {
       max-width: 1020px;
-      padding: 24px 28px 48px;
+      padding: 24px max(28px, env(safe-area-inset-right)) 48px max(28px, env(safe-area-inset-left));
     }
     .desktop-grid {
       display: grid;
@@ -89,7 +89,6 @@
       flex-direction: column;
       gap: 14px;
     }
-    /* Hide bottom bar on desktop, use header top nav instead */
     .navbar {
       display: none !important;
     }
@@ -98,13 +97,60 @@
     }
   }
 
-  @media (max-width: 767px) {
+  /* Mobile Portrait or Small Screens */
+  @media (max-width: 767px), (max-height: 550px) {
     .desktop-nav {
       display: none !important;
     }
     .desktop-grid {
       display: block;
     }
+    .desktop-only-col {
+      display: none !important;
+    }
+  }
+
+  /* Mobile Horizontal / Landscape (Phone rotated sideways) */
+  @media (orientation: landscape) and (max-height: 550px) {
+    #app {
+      max-width: 760px;
+      padding-top: calc(env(safe-area-inset-top) + 10px);
+      padding-bottom: calc(env(safe-area-inset-bottom) + 76px);
+    }
+    .header-top {
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+    }
+    .card {
+      padding: 16px 18px;
+      margin-bottom: 12px;
+    }
+    .day-card {
+      padding: 12px 16px;
+      min-height: 54px;
+      margin-bottom: 10px;
+    }
+    .btn {
+      min-height: 48px;
+      padding: 12px 16px;
+    }
+    .sheet {
+      max-height: 94vh;
+      padding-top: 14px;
+      padding-bottom: calc(env(safe-area-inset-bottom) + 14px);
+    }
+    .navbar {
+      padding-top: 4px;
+      padding-bottom: calc(env(safe-area-inset-bottom) + 4px);
+    }
+    .nav-item {
+      padding: 4px 10px;
+    }
+  }
+
+  /* Hide bottom nav when virtual keyboard is active (Android & iOS input focus) */
+  body.keyboard-open .navbar {
+    display: none !important;
   }
 
   /* Header Top Bar */
@@ -871,10 +917,56 @@ if (WTA) {
   try {
     WTA.ready();
     WTA.expand();
-    if (WTA.setHeaderColor) WTA.setHeaderColor('#07100b');
-    if (WTA.setBackgroundColor) WTA.setBackgroundColor('#07100b');
+    if (WTA.setHeaderColor) WTA.setHeaderColor('#09130e');
+    if (WTA.setBackgroundColor) WTA.setBackgroundColor('#09130e');
   } catch (e) {}
 }
+
+
+/* Telegram Native BackButton & Closing Confirmation Handlers (iOS & Android) */
+function updateTelegramBackButton() {
+  if (!WTA || !WTA.BackButton) return;
+  const isModalOpen = modal && modal.classList.contains('show');
+  if (isModalOpen || curView !== 'home') {
+    WTA.BackButton.show();
+  } else {
+    WTA.BackButton.hide();
+  }
+}
+
+function updateTelegramClosingConfirmation() {
+  if (!WTA) return;
+  try {
+    if (state.active && WTA.enableClosingConfirmation) {
+      WTA.enableClosingConfirmation();
+    } else if (!state.active && WTA.disableClosingConfirmation) {
+      WTA.disableClosingConfirmation();
+    }
+  } catch (e) {}
+}
+
+if (WTA && WTA.BackButton) {
+  WTA.BackButton.onClick(() => {
+    Haptic.tick();
+    if (modal && modal.classList.contains('show')) {
+      closeModal();
+    } else if (curView !== 'home') {
+      setView('home');
+    }
+  });
+}
+
+// Android & iOS virtual keyboard detection: hides fixed bottom bar to prevent overlapping inputs
+window.addEventListener('focusin', (e) => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+    document.body.classList.add('keyboard-open');
+  }
+});
+window.addEventListener('focusout', (e) => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+    document.body.classList.remove('keyboard-open');
+  }
+});
 
 const Haptic = {
   ok() { if (WTA && WTA.HapticFeedback) try { WTA.HapticFeedback.notificationOccurred('success'); } catch(e){} },
@@ -1377,7 +1469,7 @@ function toast(msg) {
   toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 2600);
 }
 
-function closeModal() { modal.classList.remove('show'); }
+function closeModal() { modal.classList.remove('show'); updateTelegramBackButton(); }
 modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
 function setView(viewName) {
@@ -1477,7 +1569,7 @@ function openProfileModal() {
       </div>
     </div>
   `;
-  modal.classList.add('show');
+  modal.classList.add('show'); updateTelegramBackButton();
 }
 
 function copyPersonalLink() {
@@ -1922,6 +2014,7 @@ function startWorkoutSession(programId) {
     }
   }
 
+  updateTelegramClosingConfirmation();
   state.active = {
     id: genId('session'),
     programId: prog.id,
@@ -1990,6 +2083,7 @@ async function finishCurrentWorkout() {
   clearRestTimer();
   await saveCompletedWorkout(finishedWorkout);
   state.active = null;
+  updateTelegramClosingConfirmation();
   await saveActiveWorkout();
 
   Haptic.ok();
@@ -2406,8 +2500,8 @@ function renderSvgChart(data) {
     <svg class="chart-svg" viewBox="0 0 ${w} ${h}">
       <defs>
         <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2ecc71" stop-opacity="0.35"/>
-          <stop offset="100%" stop-color="#2ecc71" stop-opacity="0.0"/>
+          <stop offset="0%" stop-color="#88c2a2" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#88c2a2" stop-opacity="0.0"/>
         </linearGradient>
       </defs>
       <line x1="${padding}" y1="${h - padding}" x2="${w - padding}" y2="${h - padding}" stroke="#1b3d2b" stroke-width="1"/>
