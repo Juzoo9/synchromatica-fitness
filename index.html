@@ -14,26 +14,37 @@
 <title>Synchromatica Fitness — Трекер и Аналитика</title>
 <style>
   :root {
-    --bg: #08120c;
-    --bg-surface: #0d1e15;
-    --card: #11241a;
-    --card-hover: #163023;
-    --card-border: #1e3f2e;
-    --card-border-subtle: #142a1f;
-    --txt: #f2f7f4;
-    --txt-muted: #91b3a0;
-    --txt-dim: #547864;
-    --acc: #52c788;
-    --acc-light: #7fe3ad;
-    --acc-dark: #2d8a57;
-    --acc-glow: rgba(82, 199, 136, 0.22);
-    --warn: #f59e0b;
-    --danger: #ef4444;
-    --blue: #38bdf8;
-    --purple: #a855f7;
-    --radius: 16px;
-    --radius-sm: 10px;
-    --shadow: 0 10px 36px rgba(0,0,0,0.45);
+    /* Backgrounds: Deep calm forest pine */
+    --bg: #09130e;
+    --bg-surface: #0e1c15;
+    --card: #12221a;
+    --card-hover: #16281f;
+    --card-border: rgba(162, 199, 178, 0.08);
+    --card-border-subtle: rgba(162, 199, 178, 0.04);
+
+    /* Typography: Off-white/cream headers, soft muted secondary */
+    --txt: #f3f6f4;
+    --txt-muted: #829b8d;
+    --txt-dim: #556c60;
+
+    /* Accents: Soft pastel sage and mint (Strictly non-neon) */
+    --acc: #88c2a2;
+    --acc-light: #a9d9c0;
+    --acc-dark: #6fa88a;
+    --acc-glow: rgba(136, 194, 162, 0.12);
+
+    /* Status accents (muted & calm) */
+    --warn: #d4a373;
+    --danger: #cf7373;
+    --blue: #7da5b8;
+    --purple: #9b8ab4;
+
+    /* Sizing & Touch Targets (Hick's & Fitts's Laws) */
+    --radius: 20px;
+    --radius-sm: 12px;
+    --radius-btn: 16px;
+    --tap-target: 56px;
+    --shadow: 0 12px 32px rgba(4, 10, 7, 0.5);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -47,7 +58,7 @@
   }
 
   body {
-    background: radial-gradient(1200px 600px at 75% -5%, #153825 0%, var(--bg) 65%);
+    background: radial-gradient(1000px 500px at 50% -5%, #13241b 0%, var(--bg) 60%);
     display: flex;
     flex-direction: column;
   }
@@ -1505,71 +1516,80 @@ function renderHome() {
   const recommendedProg = getTodayRecommendedProgram();
   const stats = computeOverviewStats();
 
-  // Find all exercises ready for progression
-  const allExercises = [];
-  state.programs.forEach(p => p.exercises.forEach(e => {
-    if (!allExercises.some(x => x.id === e.id)) allExercises.push(e);
-  }));
-  const coachSuggestions = allExercises.map(e => ({
-    ex: e,
-    advice: getExerciseProgressionAdvice(e.id)
-  })).filter(x => x.advice.status === 'upgrade' || x.advice.status === 'plateau');
-
   let html = renderHeaderTop();
 
   html += `<div class="desktop-grid">`;
 
-  /* LEFT COLUMN (Active Session, Today recommendation, Schedule) */
+  /* LEFT COLUMN — Minimalist Core Focus (Telegram Mini App Primary View) */
   html += `<div class="desktop-col">`;
 
+  // 1. DOMINANT FOCUS: Hero Workout Card
   if (state.active) {
     const prog = state.programs.find(p => p.id === state.active.programId) || { name: 'Тренировка' };
     html += `
-      <div class="card highlight">
-        <div class="card-header">
-          <div class="card-title">🔥 Тренировка не завершена</div>
-          <span class="badge today">В процессе</span>
+      <div class="card" style="border-color: rgba(136, 194, 162, 0.35); background: #13251c;">
+        <div style="font-size:11px; font-weight:700; color:var(--acc-light); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px">
+          Сессия не завершена
         </div>
-        <p class="card-desc"><b>${esc(prog.name)}</b> начата. Все данные сохраняются на лету.</p>
-        <button class="btn" style="margin-top:12px" onclick="resumeActiveWorkout()">Продолжить тренировку →</button>
+        <div style="font-size:22px; font-weight:700; color:var(--txt); margin-bottom:6px">
+          ${esc(prog.name)}
+        </div>
+        <p class="card-desc" style="margin-bottom:20px">
+          Тренировка в процессе. Все подходы и веса сохраняются на лету.
+        </p>
+        <button class="btn" onclick="resumeActiveWorkout()">
+          Продолжить тренировку →
+        </button>
+      </div>
+    `;
+  } else {
+    html += `
+      <div class="card" style="border-color: rgba(136, 194, 162, 0.18); background: #12221a;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+          <span style="font-size:11.5px; font-weight:700; color:var(--acc-light); text-transform:uppercase; letter-spacing:0.8px">
+            Сегодня · ${DAY_NAMES[todayCode] || 'Тренировка'}
+          </span>
+          <span style="font-size:11.5px; color:var(--txt-dim)">
+            ${recommendedProg.exercises.length} упражнений
+          </span>
+        </div>
+        <div style="font-size:23px; font-weight:700; color:var(--txt); margin-bottom:6px; letter-spacing:-0.2px">
+          ${esc(recommendedProg.name)}
+        </div>
+        <p class="card-desc" style="margin-bottom:22px">
+          Расчёт прогрессии весов по методике NSCA готов к выполнению.
+        </p>
+        <button class="btn" onclick="startWorkoutSession('${recommendedProg.id}')">
+          Начать тренировку
+        </button>
       </div>
     `;
   }
 
-  // Today Workout Card
+  // 2. UNIFORM SCHEDULE CARDS (Clean, airy, muted exercise text)
   html += `
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">🎯 Сегодня: ${DAY_NAMES[todayCode] || 'Тренировка'}</div>
-        <span class="badge today">Рекомендация</span>
-      </div>
-      <p class="card-desc" style="font-size:15px; font-weight:700; color:var(--txt); margin-bottom:4px">${esc(recommendedProg.name)}</p>
-      <p class="card-desc">${recommendedProg.exercises.length} упражнений. Автоматический расчёт прогрессии весов.</p>
-      <button class="btn" style="margin-top:14px" onclick="startWorkoutSession('${recommendedProg.id}')">Начать тренировку</button>
-    </div>
-  `;
-
-  // Schedule list
-  html += `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 2px 6px">
-      <span style="font-size:15px; font-weight:700">Твоё расписание (Пн/Ср/Пт)</span>
-      <button class="chip" onclick="setView('programs')">Все дни →</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:26px 4px 14px">
+      <span style="font-size:15px; font-weight:700; color:var(--txt)">Расписание тренировок</span>
+      <button class="chip" onclick="setView('programs')" style="background:transparent; border-color:var(--card-border); color:var(--txt-muted)">Все программы →</button>
     </div>
   `;
 
   state.programs.forEach(prog => {
     const isToday = prog.dayCode === todayCode;
+    const exList = prog.exercises.map(e => e.name).join(' · ');
     html += `
       <div class="day-card ${isToday ? 'active-today' : ''}" onclick="startWorkoutSession('${prog.id}')">
         <div class="day-left">
           <div class="day-name">
-            ${esc(prog.name)}
+            <span>${DAY_NAMES[prog.dayCode] || 'День'} · ${esc(prog.name)}</span>
             ${isToday ? '<span class="badge today">Сегодня</span>' : ''}
           </div>
-          <div class="day-info">${DAY_NAMES[prog.dayCode] || 'День'} · ${prog.exercises.length} упр. (${prog.exercises.map(e => e.name).slice(0, 3).join(', ')}${prog.exercises.length > 3 ? '...' : ''})</div>
+          <div class="day-info">${esc(exList || 'Упражнения не добавлены')}</div>
         </div>
-        <div class="day-action">
-          <button class="iconbtn sm" onclick="event.stopPropagation(); openEditProgramModal('${prog.id}')">✏️</button>
+        <div class="day-action" style="opacity:0.45">
+          <button class="iconbtn sm" title="Редактировать" onclick="event.stopPropagation(); openEditProgramModal('${prog.id}')" style="background:transparent; border-color:transparent; color:var(--txt-dim)">
+            ✎
+          </button>
         </div>
       </div>
     `;
@@ -1577,39 +1597,12 @@ function renderHome() {
 
   html += `</div>`; // Close Left Column
 
-  /* RIGHT COLUMN (Coach Insights & Recent Workouts) */
-  html += `<div class="desktop-col">`;
+  /* RIGHT COLUMN — Secondary context on Desktop widescreen only */
+  html += `<div class="desktop-col desktop-only-col">`;
 
-  // Coach Insights Card
-  if (coachSuggestions.length > 0) {
-    html += `
-      <div class="card coach">
-        <div class="card-header">
-          <div class="card-title">💡 Рекомендации тренера</div>
-          <span class="badge overload">Прогрессия</span>
-        </div>
-        <p class="card-desc" style="margin-bottom:12px">Анализ нагрузок по мировым методикам (NSCA 2-for-2, Double Progression):</p>
-    `;
-    coachSuggestions.slice(0, 2).forEach(s => {
-      html += `
-        <div class="coach-tip-box ${s.advice.status === 'upgrade' ? 'upgrade' : 'plateau'}">
-          <span class="coach-tip-icon">${s.advice.status === 'upgrade' ? '🚀' : '⚠️'}</span>
-          <div>
-            <b>${esc(s.ex.name)}:</b> ${s.advice.text}
-          </div>
-        </div>
-      `;
-    });
-    html += `
-        <button class="btn sm ghost" style="margin-top:6px" onclick="setView('coach')">Вся аналитика весов →</button>
-      </div>
-    `;
-  }
-
-  // Overview stats
   if (stats) {
     html += `
-      <div class="stats-grid">
+      <div class="stats-grid" style="margin-bottom:18px">
         <div class="stat-box">
           <div class="stat-label">Тоннаж за 4 нед</div>
           <div class="stat-val">${stats.tonnage4w}</div>
@@ -1622,17 +1615,16 @@ function renderHome() {
     `;
   }
 
-  // Recent workouts
   const recentWorkouts = state.workoutIds
     .map(id => state.workouts[id])
     .filter(Boolean)
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 4);
+    .slice(0, 3);
 
   html += `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 2px 6px">
-      <span style="font-size:15px; font-weight:700">Недавние тренировки</span>
-      <button class="chip" onclick="setView('history')">Вся история</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:0 4px 12px">
+      <span style="font-size:14.5px; font-weight:700; color:var(--txt)">Недавние тренировки</span>
+      <button class="chip" onclick="setView('history')">История</button>
     </div>
   `;
 
@@ -1646,7 +1638,7 @@ function renderHome() {
       </div>
     `;
   } else {
-    html += `<div class="card">`;
+    html += `<div class="card" style="padding:12px 16px">`;
     recentWorkouts.forEach(w => {
       html += `
         <div class="hist-item" onclick="openWorkoutDetailModal('${w.id}')">
@@ -1664,10 +1656,11 @@ function renderHome() {
   html += `</div>`; // Close Right Column
   html += `</div>`; // Close Desktop Grid
 
+  html += renderFooterLeadBar();
+
   app.innerHTML = html;
 }
 
-/* ---------- 6.2 VIEW: COACH & PROGRESSION ANALYTICS ---------- */
 function renderCoachView() {
   const allExercises = [];
   state.programs.forEach(p => p.exercises.forEach(e => {
