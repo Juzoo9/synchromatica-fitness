@@ -1602,6 +1602,106 @@ async function saveManualUid() {
   }, 400);
 }
 
+
+/* ---------- 6.0 COMMERCIAL LEAD FOOTER BANNER ---------- */
+function renderFooterLeadBar() {
+  return `
+    <div class="footer-lead-bar">
+      <div class="footer-lead-badge">⚡ Synchromatica AI Architecture</div>
+      <div class="footer-lead-title">Кастомный Telegram Mini App для вашего бизнеса</div>
+      <div class="footer-lead-desc">
+        Разработано в Synchromatica AI. Нужен такой же кастомный Mini App, защищённый бот или AI-автоматизация под ключ?
+      </div>
+      <a class="footer-lead-btn" href="https://t.me/DigitalCoinMainer?text=Здравствуйте,%20посмотрел%20демо%20фитнес-аппа,%20хочу%20обсудить%20проект" target="_blank" rel="noopener">
+        <span>Связаться с разработчиком</span>
+        <span style="font-size:15px">→</span>
+      </a>
+      <div class="footer-lead-sub">Zero-backend · Клиентское AES-256 шифрование · Telegram CloudStorage</div>
+    </div>
+  `;
+}
+
+/* ---------- 6.0 EXPORT TO CSV (EXCEL SPREADSHEET) ---------- */
+function exportTableCsv() {
+  const sortedWorkouts = state.workoutIds
+    .map(id => state.workouts[id])
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  if (!sortedWorkouts.length) {
+    toast('История тренировок пуста — пока нечего выгружать');
+    return;
+  }
+
+  const rows = [
+    ['Дата', 'Время', 'Программа', 'Упражнение', 'Подход', 'Вес (кг)', 'Повторения', 'Тоннаж подхода (кг)', 'Общий тоннаж (кг)', 'Длительность (мин)', 'Заметки']
+  ];
+
+  sortedWorkouts.forEach(w => {
+    const d = new Date(w.date);
+    const dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString('ru-RU') : (w.date || '');
+    const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+    const progName = w.programName || 'Тренировка';
+    const totalTonnage = Math.round(w.totalKg || 0);
+    const dur = w.durationMin || 0;
+    const notes = (w.notes || '').replace(/[\r\n]+/g, ' ');
+
+    if (w.exercises && w.exercises.length) {
+      w.exercises.forEach(ex => {
+        const exName = ex.name || 'Упражнение';
+        if (ex.sets && ex.sets.length) {
+          ex.sets.forEach((s, idx) => {
+            const setNum = idx + 1;
+            const weight = s.weight || 0;
+            const reps = s.reps || 0;
+            const setTonnage = Math.round(weight * reps);
+            rows.push([
+              dateStr,
+              timeStr,
+              progName,
+              exName,
+              setNum,
+              weight,
+              reps,
+              setTonnage,
+              totalTonnage,
+              dur,
+              notes
+            ]);
+          });
+        } else {
+          rows.push([dateStr, timeStr, progName, exName, 0, 0, 0, 0, totalTonnage, dur, notes]);
+        }
+      });
+    } else {
+      rows.push([dateStr, timeStr, progName, '—', 0, 0, 0, 0, totalTonnage, dur, notes]);
+    }
+  });
+
+  const csvContent = '\uFEFF' + rows.map(r => 
+    r.map(val => {
+      const str = String(val === undefined || val === null ? '' : val);
+      if (str.includes(';') || str.includes('"') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }).join(';')
+  ).join('\r\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute('href', url);
+  downloadAnchor.setAttribute('download', `synchromatica_fitness_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  Haptic.ok();
+  toast('Таблица (CSV) успешно выгружена ✓');
+}
+
 /* ---------- 6.1 VIEW: HOME (DESKTOP + MOBILE ADAPTIVE) ---------- */
 function renderHome() {
   const todayCode = getTodayCode();
