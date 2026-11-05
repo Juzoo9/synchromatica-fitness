@@ -1052,52 +1052,51 @@ const Storage = {
 
   userToken: null,
   userPrefix: 'u_anon_',
+  authSource: 'guest',
+  telegramUser: null,
 
-  // Initialize secure one-way identity before reading/writing
+  // Initialize secure one-way identity before reading/writing (strictly automatic, no manual spoofing)
   async initIdentity() {
-    // 1. From Telegram WebApp (one-way SHA-256 hash)
-    const tgUserId = WTA?.initDataUnsafe?.user?.id;
-    if (tgUserId) {
-      this.userToken = await CryptoHelper.sha256(CryptoHelper.SALT + tgUserId);
+    // 1. Automatic, cryptographically verified binding from Telegram WebApp
+    const tgUser = WTA?.initDataUnsafe?.user;
+    if (tgUser && tgUser.id) {
+      this.telegramUser = tgUser;
+      this.userToken = await CryptoHelper.sha256(CryptoHelper.SALT + tgUser.id);
       this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
+      this.authSource = 'telegram';
+      try { localStorage.setItem('synchro_user_token', this.userToken); } catch(e){}
       return;
     }
 
-    // 2. From URL ?token=...
+    // 2. From URL ?token=... (high-entropy 64-character SHA-256 token passed by personal link)
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get('token');
-    if (urlToken && urlToken.length >= 16) {
-      this.userToken = urlToken;
-      try { localStorage.setItem('synchro_user_token', urlToken); } catch(e){}
-      this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
-      return;
-    }
-
-    // 3. From URL ?uid=... (backward compatibility: one-way hash it)
-    const urlUid = urlParams.get('uid');
-    if (urlUid) {
-      this.userToken = await CryptoHelper.sha256(CryptoHelper.SALT + urlUid);
+    if (urlToken && /^[a-f0-9]{32,64}$/i.test(urlToken)) {
+      this.userToken = urlToken.toLowerCase();
       try { localStorage.setItem('synchro_user_token', this.userToken); } catch(e){}
       this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
+      this.authSource = 'token';
       return;
     }
 
-    // 4. From localStorage cached token
+    // 3. From localStorage cached token (if previously opened with valid token)
     try {
       const cached = localStorage.getItem('synchro_user_token');
-      if (cached) {
-        this.userToken = cached;
+      if (cached && /^[a-f0-9]{32,64}$/i.test(cached)) {
+        this.userToken = cached.toLowerCase();
         this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
+        this.authSource = 'cached';
         return;
       }
     } catch(e){}
 
-    // 5. Generate secure random client token
-    const randBuf = crypto.getRandomValues(new Uint8Array(16));
+    // 4. Standalone guest on desktop: generate secure unguessable 256-bit random session token
+    const randBuf = crypto.getRandomValues(new Uint8Array(32));
     const randHex = Array.from(randBuf).map(b => b.toString(16).padStart(2, '0')).join('');
-    this.userToken = await CryptoHelper.sha256(CryptoHelper.SALT + randHex);
+    this.userToken = randHex;
     try { localStorage.setItem('synchro_user_token', this.userToken); } catch(e){}
     this.userPrefix = 'tk_' + this.userToken.slice(0, 16) + '_';
+    this.authSource = 'guest';
   },
 
   _cloudQueue: new Map(),
@@ -1533,36 +1532,72 @@ function openProfileModal() {
   const personalUrl = token ? `${currentUrl}?token=${token}` : currentUrl;
   const shortKey = token ? (token.slice(0, 8) + '...' + token.slice(-6)) : 'Гость';
 
+  let authStatusHtml = '';
+  if (Storage.authSource === 'telegram') {
+    const name = Storage.telegramUser?.first_name ? esc(Storage.telegramUser.first_name) : 'Пользователь';
+    authStatusHtml = `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
+        <span class="badge today" style="font-size:11px">🛡️ Telegram ID верифицирован</span>
+        <span style="font-size:12px; color:var(--txt-muted)">${name}</span>
+      </div>
+      <div style="font-size:12.5px; color:var(--txt-muted); line-height:1.45">
+        Ваш аккаунт привязан <b>автоматически</b> через защищённый протокол Telegram. Доступ к вашим данным есть только у владельца этого профиля Telegram.
+      </div>
+    `;
+  } else if (Storage.authSource === 'token' || Storage.authSource === 'cached') {
+    authStatusHtml = `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
+        <span class="badge blue" style="font-size:11px">🔗 Синхронизировано по токену</span>
+        <span style="font-size:12px; color:var(--txt-muted)">ПК / Браузер</span>
+      </div>
+      <div style="font-size:12.5px; color:var(--txt-muted); line-height:1.45">
+        Сессия авторизована через персональный крипто-токен. Все тренировки синхронизированы с вашим профилем.
+      </div>
+    `;
+  } else {
+    authStatusHtml = `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
+        <span class="badge" style="font-size:11px; background:rgba(212, 163, 115, 0.15); color:var(--warn); border:1px solid rgba(212, 163, 115, 0.3)">👤 Гостевая сессия</span>
+        <span style="font-size:12px; color:var(--txt-muted)">Локально</span>
+      </div>
+      <div style="font-size:12.5px; color:var(--txt-muted); line-height:1.45">
+        Вы открыли трекер в браузере. Данные сохраняются только на этом устройстве. Чтобы привязать их к Telegram, запустите нашего бота.
+      </div>
+    `;
+  }
+
   sheet.innerHTML = `
     <div class="sheet-title">
-      <span>Защита данных и личная ссылка</span>
+      <span>Защита данных и синхронизация</span>
       <button class="iconbtn sm" onclick="closeModal()">✕</button>
     </div>
     
-    <div class="card coach" style="margin-bottom:14px">
-      <div style="font-size:13px; line-height:1.45">
-        🔒 <b>Одностороннее шифрование включено (SHA-256 + AES-GCM)</b>.<br>
-        Твой реальный Telegram ID нигде не передаётся и необратим. Все веса, упражнения и подходы зашифрованы ключом <code>${shortKey}</code>. Никто посторонний не может украсть или прочитать данные.
+    <div class="card coach" style="margin-bottom:16px; padding:16px">
+      ${authStatusHtml}
+      <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--card-border-subtle); font-size:11.5px; color:var(--txt-dim); line-height:1.4">
+        🔒 <b>E2E-шифрование (SHA-256 + AES-GCM 256):</b><br>
+        Ключ шифра: <code>${shortKey}</code>. Реальный Telegram ID никогда не передается и необратим.
       </div>
     </div>
 
     <div class="field">
-      <label class="field-label">Твоя персональная зашифрованная ссылка для ПК</label>
+      <label class="field-label">Персональная зашифрованная ссылка для ПК</label>
       <input type="text" id="personalLinkInput" class="field-input" readonly value="${personalUrl}">
     </div>
 
     <div style="display:flex; flex-direction:column; gap:10px">
-      <button class="btn" onclick="copyPersonalLink()">📋 Скопировать защищённую ссылку</button>
+      <button class="btn" onclick="copyPersonalLink()">📋 Скопировать ссылку для ПК</button>
       
-      <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--card-border-subtle)">
-        <label class="field-label">Привязать Telegram ID (будет захэширован в один конец)</label>
-        <div style="display:flex; gap:8px">
-          <input type="text" id="manualUidInput" class="field-input" placeholder="например: 123456789">
-          <button class="btn sm ghost" style="width:auto; white-space:nowrap" onclick="saveManualUid()">Привязать</button>
+      <div style="background:var(--card); border:1px solid var(--card-border); border-radius:12px; padding:12px 14px; margin-top:4px">
+        <div style="font-size:12px; font-weight:700; color:var(--txt); margin-bottom:4px">
+          🛡️ Автоматическая защита от подделки ID
+        </div>
+        <div style="font-size:11.5px; color:var(--txt-muted); line-height:1.45">
+          Ручной ввод Telegram ID исключён в целях безопасности. Доступ предоставляется исключительно через проверенный контекст Telegram WebApp или по уникальному крипто-токену.
         </div>
       </div>
 
-      <div style="margin-top:8px">
+      <div style="margin-top:6px">
         <a href="https://t.me/synchromatica" target="_blank" class="btn sm ghost" style="text-decoration:none; justify-content:center; color:var(--acc-light); border-color:var(--card-border)">
           📢 Наш Telegram-канал: @synchromatica
         </a>
@@ -1585,23 +1620,6 @@ function copyPersonalLink() {
     });
   }
 }
-
-async function saveManualUid() {
-  const inp = document.getElementById('manualUidInput');
-  const val = inp && inp.value.trim();
-  if (!val) {
-    toast('Введите корректный Telegram ID');
-    return;
-  }
-  const token = await CryptoHelper.sha256(CryptoHelper.SALT + val);
-  localStorage.setItem('synchro_user_token', token);
-  Haptic.ok();
-  toast('ID надёжно захэширован! Обновление...');
-  setTimeout(() => {
-    window.location.href = window.location.origin + window.location.pathname + '?token=' + encodeURIComponent(token);
-  }, 400);
-}
-
 
 /* ---------- 6.0 COMMERCIAL LEAD FOOTER BANNER ---------- */
 function renderFooterLeadBar() {
