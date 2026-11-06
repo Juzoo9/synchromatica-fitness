@@ -1865,7 +1865,7 @@ function renderHome() {
   html += `
     <div style="display:flex; justify-content:space-between; align-items:center; margin:26px 4px 14px">
       <span style="font-size:15px; font-weight:700; color:var(--txt)">Расписание тренировок</span>
-      <button class="chip" onclick="setView('programs')" style="background:transparent; border-color:var(--card-border); color:var(--txt-muted)">Все программы →</button>
+      <span style="font-size:12px; color:var(--txt-muted)">3 тренировки в неделю</span>
     </div>
   `;
 
@@ -2561,11 +2561,9 @@ function renderProgramsView() {
       <div class="card-header">
         <div class="card-title">💡 Твоя тренировочная неделя</div>
       </div>
-      <p class="card-desc">Базовый сплит настроен на <b>Понедельник, Среду и Пятницу</b>. Ты можешь менять любые упражнения, перетаскивать их порядок или создавать свои дни.</p>
+      <p class="card-desc">Тренировочная программа настроена на <b>Понедельник, Среду и Пятницу</b>. Ты можешь менять любые упражнения, перетаскивать их порядок и настраивать под себя.</p>
     </div>
-    <div style="margin-bottom:14px">
-      <button class="btn ghost" onclick="openNewProgramModal()">+ Создать новую тренировку / день</button>
-    </div>
+    
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:14px">
   `;
 
@@ -3234,12 +3232,12 @@ function renderSvgChart(data) {
       </defs>
       <line x1="${padding}" y1="${h - padding}" x2="${w - padding}" y2="${h - padding}" stroke="#1b3d2b" stroke-width="1"/>
       <line x1="${padding}" y1="${padding}" x2="${w - padding}" y2="${padding}" stroke="#153323" stroke-dasharray="3,3" stroke-width="1"/>
-      <path d="${pathD}" fill="none" stroke="#2ecc71" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${pathD}" fill="none" stroke="#88c2a2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
   `;
 
   points.forEach(p => {
     svg += `
-      <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="#f0f7f3" stroke="#2ecc71" stroke-width="2.5"/>
+      <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="#f0f7f3" stroke="#88c2a2" stroke-width="2.5"/>
       <text x="${p.x}" y="${p.y - 8}" text-anchor="middle" fill="#82a893" font-size="11" font-weight="700">${p.val}</text>
       <text x="${p.x}" y="${h - 8}" text-anchor="middle" fill="#4e735f" font-size="9.5">${p.date}</text>
     `;
@@ -3538,6 +3536,21 @@ async function boot() {
       try {
         const parsed = typeof rawProgs === 'string' ? JSON.parse(rawProgs) : rawProgs;
         if (Array.isArray(parsed) && parsed.length) state.programs = parsed;
+        // Auto-repair & normalize day codes if duplicate days exist (e.g. all set to Friday)
+        if (Array.isArray(state.programs) && state.programs.length >= 3) {
+          const codes = state.programs.map(p => p.dayCode);
+          const uniqueCodes = new Set(codes);
+          if (uniqueCodes.size < state.programs.length) {
+            const standardDays = ['mon', 'wed', 'fri'];
+            state.programs.forEach((p, idx) => {
+              if (idx < standardDays.length) {
+                p.dayCode = standardDays[idx];
+                p.dayName = DAY_NAMES[p.dayCode] || 'День';
+              }
+            });
+            savePrograms();
+          }
+        }
       } catch (e) {}
     }
 
