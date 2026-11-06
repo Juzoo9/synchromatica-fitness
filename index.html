@@ -2072,18 +2072,26 @@ function renderWorkoutView() {
   `;
 
   // Exercises blocks
-  cur.exercises.forEach(ex => {
+  cur.exercises.forEach((ex, exIdx) => {
     const sets = cur.entries[ex.id] || [];
     const advice = getExerciseProgressionAdvice(ex.id, cur.startedAt);
+    const history = getExerciseHistory(ex.id, cur.startedAt);
 
     html += `
       <div class="exblk" id="exblk_${ex.id}">
         <div class="exblk-hd">
           <div>
-            <div class="ex-name">${esc(ex.name)}</div>
-            <div class="ex-sub">Подходов: <b>${sets.filter(s => s.done).length}</b> из ${sets.length}</div>
+            <div class="ex-name" style="display:flex; align-items:center; gap:8px">
+              <span style="font-size:12.5px; color:var(--acc-light); font-weight:700">#${exIdx + 1}</span>
+              <span>${esc(ex.name)}</span>
+            </div>
+            <div class="ex-sub">Выполнено: <b>${sets.filter(s => s.done).length}</b> из ${sets.length} подходов</div>
           </div>
-          <button class="iconbtn sm" onclick="removeExerciseFromSession('${ex.id}')" title="Убрать из этой тренировки">✕</button>
+          <div style="display:flex; align-items:center; gap:4px">
+            <button class="iconbtn sm" style="width:28px; height:28px; font-size:11px" onclick="moveActiveExercise('${ex.id}', -1)" ${exIdx === 0 ? 'disabled style="opacity:0.25"' : ''} title="Поднять выше">▲</button>
+            <button class="iconbtn sm" style="width:28px; height:28px; font-size:11px" onclick="moveActiveExercise('${ex.id}', 1)" ${exIdx === cur.exercises.length - 1 ? 'disabled style="opacity:0.25"' : ''} title="Опустить ниже">▼</button>
+            <button class="iconbtn sm warn" style="width:28px; height:28px; font-size:12px" onclick="removeExerciseFromSession('${ex.id}')" title="Убрать из этой тренировки">✕</button>
+          </div>
         </div>
     `;
 
@@ -2118,15 +2126,21 @@ function renderWorkoutView() {
     });
     html += `</div>`;
 
+    // Quick add set controls (instant single or batch sets)
     html += `
-        <button class="add-set-btn" onclick="addSetToExercise('${ex.id}')">+ Добавить подход</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px">
+          <button class="add-set-btn" style="flex:1; min-width:105px" onclick="addSetToExercise('${ex.id}', 1)">+ 1 подход</button>
+          <button class="chip" onclick="addSetToExercise('${ex.id}', 3)">+ 3 подхода</button>
+          <button class="chip" onclick="addSetToExercise('${ex.id}', 4)">+ 4 подхода</button>
+          ${history.length && history[0].sets.length > 1 ? `<button class="chip" onclick="cloneLastSessionSets('${ex.id}')">Как в прошлый раз (${history[0].sets.length}п)</button>` : ''}
+        </div>
       </div>
     `;
   });
 
   // Action buttons
   html += `
-    <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px">
+    <div style="margin-top:18px; display:flex; flex-direction:column; gap:10px">
       <button class="btn ghost sm" onclick="openAddExerciseToSessionModal()">+ Добавить упражнение в тренировку</button>
       <button class="btn" onclick="finishCurrentWorkout()">Завершить и сохранить тренировку</button>
       <button class="btn warn sm" onclick="cancelCurrentWorkout()">Отменить тренировку без сохранения</button>
@@ -2144,17 +2158,17 @@ function updateSetData(exId, setIdx, field, val) {
 
 function onSetFieldChange() { saveActiveWorkout(); }
 
-function addSetToExercise(exId) {
+function addSetToExercise(exId, count = 1) {
   if (!state.active) return;
   if (!state.active.entries[exId]) state.active.entries[exId] = [];
   const sets = state.active.entries[exId];
 
   let lastW = '';
-  let lastR = '';
+  let lastR = 10;
   if (sets.length > 0) {
     const prevSet = sets[sets.length - 1];
     lastW = prevSet.w || '';
-    lastR = prevSet.r || '';
+    lastR = prevSet.r || 10;
   } else {
     const history = getExerciseHistory(exId, state.active.startedAt);
     if (history.length) {
@@ -2163,7 +2177,9 @@ function addSetToExercise(exId) {
     }
   }
 
-  sets.push({ w: lastW, r: lastR, done: false });
+  for (let c = 0; c < count; c++) {
+    sets.push({ w: lastW, r: lastR, done: false });
+  }
   Haptic.tick();
   saveActiveWorkout();
   renderWorkoutView();
@@ -2227,16 +2243,63 @@ function startWorkoutSession(programId) {
     entries: {}
   };
 
+  // Pre-populate all planned sets right away (no need to remember how many sets to do!)
   prog.exercises.forEach(ex => {
     const history = getExerciseHistory(ex.id, Date.now());
-    const topW = history.length ? history[0].topSet.w : '';
-    const topR = history.length ? history[0].topSet.r : '';
-    state.active.entries[ex.id] = [{ w: topW, r: topR, done: false }];
+    const initialSets = [];
+    if (history.length && history[0].sets && history[0].sets.length) {
+      // Repeat sets count from the last successful workout so the user doesn't have to remember!
+      history[0].sets.forEach(prev => {
+        initialSets.push({ w: prev.w || '', r: prev.r || 10, done: false });
+      });
+    } else {
+      // Default to targetSets (e.g. 3 or 4) or 3
+      const numSets = Number(ex.targetSets) || 3;
+      const targetReps = Number(ex.targetReps) || 10;
+      for (let i = 0; i < numSets; i++) {
+        initialSets.push({ w: '', r: targetReps, done: false });
+      }
+    }
+    state.active.entries[ex.id] = initialSets.length ? initialSets : [{ w: '', r: 10, done: false }];
   });
 
   saveActiveWorkout();
   Haptic.ok();
   setView('workout');
+}
+
+function resumeActiveWorkout() { setView('workout'); }
+
+function moveActiveExercise(exId, direction) {
+  if (!state.active) return;
+  const idx = state.active.exercises.findIndex(e => e.id === exId);
+  if (idx === -1) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= state.active.exercises.length) return;
+  const temp = state.active.exercises[idx];
+  state.active.exercises[idx] = state.active.exercises[newIdx];
+  state.active.exercises[newIdx] = temp;
+  Haptic.tick();
+  saveActiveWorkout();
+  renderWorkoutView();
+}
+
+function cloneLastSessionSets(exId) {
+  if (!state.active) return;
+  const history = getExerciseHistory(exId, state.active.startedAt);
+  if (!history.length || !history[0].sets || !history[0].sets.length) {
+    toast('Нет предыдущей истории по этому упражнению');
+    return;
+  }
+  state.active.entries[exId] = history[0].sets.map(s => ({
+    w: s.w,
+    r: s.r,
+    done: false
+  }));
+  Haptic.ok();
+  toast(`Загружено ${history[0].sets.length} подходов из прошлой тренировки`);
+  saveActiveWorkout();
+  renderWorkoutView();
 }
 
 function resumeActiveWorkout() { setView('workout'); }
@@ -2303,23 +2366,110 @@ function cancelCurrentWorkout() {
   setView('home');
 }
 
+function getAllKnownExercises() {
+  const map = new Map();
+  // 1. From all current programs
+  (state.programs || []).forEach(p => {
+    (p.exercises || []).forEach(e => {
+      if (e && e.id && e.name && !map.has(e.id)) {
+        map.set(e.id, {
+          id: e.id,
+          name: e.name,
+          targetSets: e.targetSets || 3,
+          targetReps: e.targetReps || 10,
+          type: e.type || 'upper',
+          fromDay: p.dayName || p.name
+        });
+      }
+    });
+  });
+  // 2. From all past workouts in history
+  Object.values(state.workouts || {}).forEach(w => {
+    (w.exercises || []).forEach(e => {
+      if (e && e.id && e.name && !map.has(e.id)) {
+        map.set(e.id, {
+          id: e.id,
+          name: e.name,
+          targetSets: 3,
+          targetReps: 10,
+          type: 'upper',
+          fromDay: w.programName || 'История'
+        });
+      }
+    });
+  });
+  return Array.from(map.values());
+}
+
 function openAddExerciseToSessionModal() {
+  const currentExIds = (state.active?.exercises || []).map(e => e.id);
+  const known = getAllKnownExercises().filter(e => !currentExIds.includes(e.id));
+
   sheet.innerHTML = `
     <div class="sheet-title">
-      <span>Добавить упражнение</span>
+      <span>Добавить упражнение в тренировку</span>
       <button class="iconbtn sm" onclick="closeModal()">✕</button>
     </div>
+
+    ${known.length ? `
+      <div class="field">
+        <label class="field-label">Выбрать из других дней и каталога</label>
+        <div style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding-right:2px; margin-bottom:14px">
+          ${known.map(ex => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:var(--card); border:1px solid var(--card-border); border-radius:10px">
+              <div>
+                <div style="font-size:13.5px; font-weight:600; color:var(--txt)">${esc(ex.name)}</div>
+                <div style="font-size:11.5px; color:var(--txt-dim)">Источник: ${esc(ex.fromDay || 'База')}</div>
+              </div>
+              <button class="chip active" onclick="confirmAddKnownExerciseToSession('${ex.id}', '${esc(ex.name)}')">+ Добавить</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+
     <div class="field">
-      <label class="field-label">Название упражнения</label>
+      <label class="field-label">Или ввести новое упражнение</label>
       <input type="text" id="customExNameInput" class="field-input" placeholder="например: Французский жим, Тяга Т-грифа...">
     </div>
-    <button class="btn" onclick="confirmAddExerciseToSession()">Добавить в тренировку</button>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px">
+      <div>
+        <label class="field-label">Подходов сразу</label>
+        <input type="number" id="customExSetsInput" class="field-input" min="1" max="10" value="3">
+      </div>
+      <div>
+        <label class="field-label">Целевые повт.</label>
+        <input type="number" id="customExRepsInput" class="field-input" min="1" max="50" value="10">
+      </div>
+    </div>
+    <button class="btn" onclick="confirmAddExerciseToSession()">Создать и добавить в тренировку</button>
   `;
   modal.classList.add('show');
   setTimeout(() => {
     const inp = document.getElementById('customExNameInput');
-    if (inp) inp.focus();
+    if (inp && !known.length) inp.focus();
   }, 100);
+}
+
+function confirmAddKnownExerciseToSession(exId, exName) {
+  if (!state.active) return;
+  const history = getExerciseHistory(exId, state.active.startedAt);
+  const initialSets = [];
+  if (history.length && history[0].sets && history[0].sets.length) {
+    history[0].sets.forEach(prev => {
+      initialSets.push({ w: prev.w || '', r: prev.r || 10, done: false });
+    });
+  } else {
+    for (let i = 0; i < 3; i++) initialSets.push({ w: '', r: 10, done: false });
+  }
+
+  state.active.exercises.push({ id: exId, name: exName });
+  state.active.entries[exId] = initialSets;
+  saveActiveWorkout();
+  closeModal();
+  Haptic.ok();
+  toast(`Упражнение «${exName}» добавлено!`);
+  renderWorkoutView();
 }
 
 function confirmAddExerciseToSession() {
@@ -2327,12 +2477,22 @@ function confirmAddExerciseToSession() {
   const name = (inp && inp.value.trim()) || '';
   if (!name) return;
 
+  const setsCount = parseInt(document.getElementById('customExSetsInput')?.value, 10) || 3;
+  const repsCount = parseInt(document.getElementById('customExRepsInput')?.value, 10) || 10;
+
   const newEx = { id: genId('ex'), name };
   state.active.exercises.push(newEx);
-  state.active.entries[newEx.id] = [{ w: '', r: '', done: false }];
+
+  const initialSets = [];
+  for (let i = 0; i < setsCount; i++) {
+    initialSets.push({ w: '', r: repsCount, done: false });
+  }
+  state.active.entries[newEx.id] = initialSets;
+
   saveActiveWorkout();
   closeModal();
-  Haptic.tick();
+  Haptic.ok();
+  toast(`Упражнение «${name}» добавлено (${setsCount} подх.)`);
   renderWorkoutView();
 }
 
@@ -2345,7 +2505,7 @@ function renderProgramsView() {
       <div class="card-header">
         <div class="card-title">💡 Твоя тренировочная неделя</div>
       </div>
-      <p class="card-desc">Базовый сплит настроен на <b>Понедельник, Среду и Пятницу</b>. Ты можешь менять любые упражнения, переименовывать или создавать свои дни.</p>
+      <p class="card-desc">Базовый сплит настроен на <b>Понедельник, Среду и Пятницу</b>. Ты можешь менять любые упражнения, перетаскивать их порядок или создавать свои дни.</p>
     </div>
     <div style="margin-bottom:14px">
       <button class="btn ghost" onclick="openNewProgramModal()">+ Создать новую тренировку / день</button>
@@ -2368,8 +2528,9 @@ function renderProgramsView() {
 
     prog.exercises.forEach((ex, i) => {
       html += `
-        <div style="font-size:13px; color:var(--txt-muted); padding:4px 0; border-bottom:1px solid var(--card-border-subtle); display:flex; justify-content:space-between">
+        <div style="font-size:13px; color:var(--txt-muted); padding:5px 0; border-bottom:1px solid var(--card-border-subtle); display:flex; justify-content:space-between; align-items:center">
           <span>${i + 1}. ${esc(ex.name)}</span>
+          <span style="font-size:11.5px; color:var(--txt-dim)">${ex.targetSets || 3}п × ${ex.targetReps || 10}</span>
         </div>
       `;
     });
@@ -2378,6 +2539,7 @@ function renderProgramsView() {
         </div>
         <div style="display:flex; gap:8px; margin-top:12px">
           <button class="btn sm" onclick="startWorkoutSession('${prog.id}')">Начать этот день</button>
+          <button class="btn sm ghost" onclick="openProgramRevisionModal('${prog.id}')" title="Ревизия и аудит плана">🔍 Ревизия</button>
           <button class="btn sm ghost" onclick="openEditProgramModal('${prog.id}')">Настроить</button>
         </div>
       </div>
@@ -2465,41 +2627,299 @@ function openEditProgramModal(progId) {
       <label class="field-label">Название программы</label>
       <input type="text" id="editProgName" class="field-input" value="${esc(prog.name)}">
     </div>
+
     <div class="field">
-      <label class="field-label">Список упражнений (${prog.exercises.length})</label>
-      <div id="progExList">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+        <label class="field-label" style="margin-bottom:0">Упражнения (${prog.exercises.length})</label>
+        <span style="font-size:11px; color:var(--txt-dim)">▲/▼ порядок · ✎ правка</span>
+      </div>
+
+      <div id="progExList" style="display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto; padding-right:2px">
+        ${prog.exercises.length === 0 ? `
+          <div style="text-align:center; padding:18px; color:var(--txt-dim); font-size:13px">
+            В этой программе пока нет упражнений.<br>Нажми кнопку ниже, чтобы добавить.
+          </div>
+        ` : ''}
         ${prog.exercises.map((ex, i) => `
-          <div class="edit-ex-row">
-            <span style="font-size:14px; font-weight:600">${i + 1}. ${esc(ex.name)}</span>
-            <button class="iconbtn sm" onclick="removeExerciseFromProgram('${prog.id}', '${ex.id}')">✕</button>
+          <div class="edit-ex-row" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; background:var(--card); border:1px solid var(--card-border); border-radius:12px">
+            <div style="flex:1; min-width:0; cursor:pointer" onclick="openEditExerciseDetailsModal('${prog.id}', '${ex.id}')">
+              <div style="display:flex; align-items:center; gap:6px">
+                <span style="font-size:12px; font-weight:700; color:var(--acc-light); width:18px">${i + 1}.</span>
+                <span style="font-size:14px; font-weight:600; color:var(--txt); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(ex.name)}</span>
+              </div>
+              <div style="font-size:11.5px; color:var(--txt-muted); margin-left:24px; margin-top:2px">
+                ${ex.targetSets || 3} подх. × ${ex.targetReps || 10} повт. ✎
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px; flex-shrink:0">
+              <button class="iconbtn sm" style="width:30px; height:30px; font-size:11px" title="Поднять выше" onclick="moveExerciseInProgram('${prog.id}', ${i}, -1)" ${i === 0 ? 'disabled style="opacity:0.25"' : ''}>▲</button>
+              <button class="iconbtn sm" style="width:30px; height:30px; font-size:11px" title="Опустить ниже" onclick="moveExerciseInProgram('${prog.id}', ${i}, 1)" ${i === prog.exercises.length - 1 ? 'disabled style="opacity:0.25"' : ''}>▼</button>
+              <button class="iconbtn sm" style="width:30px; height:30px; font-size:12px" title="Редактировать" onclick="openEditExerciseDetailsModal('${prog.id}', '${ex.id}')">✎</button>
+              <button class="iconbtn sm warn" style="width:30px; height:30px; font-size:12px" title="Удалить" onclick="removeExerciseFromProgram('${prog.id}', '${ex.id}')">✕</button>
+            </div>
           </div>
         `).join('')}
       </div>
-      <button class="add-set-btn" style="margin-top:8px" onclick="promptAddExerciseToProgram('${prog.id}')">+ Добавить упражнение</button>
+
+      <button class="add-set-btn" style="margin-top:10px" onclick="openAddExerciseToProgramModal('${prog.id}')">+ Добавить упражнение (из базы или новое)</button>
     </div>
-    <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px">
-      <button class="btn" onclick="saveProgramEdits('${prog.id}')">Сохранить изменения</button>
+
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:18px">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <button class="btn sm" onclick="saveProgramEdits('${prog.id}')">✓ Сохранить</button>
+        <button class="btn sm ghost" onclick="openProgramRevisionModal('${prog.id}')">🔍 Ревизия плана</button>
+      </div>
       <button class="btn warn sm" onclick="deleteProgram('${prog.id}')">Удалить эту программу</button>
     </div>
   `;
   modal.classList.add('show');
 }
 
-function promptAddExerciseToProgram(progId) {
-  const name = prompt('Название упражнения:');
-  if (!name || !name.trim()) return;
-
+function moveExerciseInProgram(progId, index, direction) {
   const prog = state.programs.find(p => p.id === progId);
-  if (prog) {
-    prog.exercises.push({ id: genId('ex'), name: name.trim() });
-    openEditProgramModal(progId);
+  if (!prog) return;
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= prog.exercises.length) return;
+  const temp = prog.exercises[index];
+  prog.exercises[index] = prog.exercises[newIndex];
+  prog.exercises[newIndex] = temp;
+  savePrograms();
+  Haptic.tick();
+  openEditProgramModal(progId);
+}
+
+function openEditExerciseDetailsModal(progId, exId) {
+  const prog = state.programs.find(p => p.id === progId);
+  if (!prog) return;
+  const ex = prog.exercises.find(e => e.id === exId);
+  if (!ex) return;
+
+  sheet.innerHTML = `
+    <div class="sheet-title">
+      <span>Настройка упражнения</span>
+      <button class="iconbtn sm" onclick="openEditProgramModal('${progId}')">✕</button>
+    </div>
+    <div class="field">
+      <label class="field-label">Название упражнения</label>
+      <input type="text" id="editExNameInput" class="field-input" value="${esc(ex.name)}">
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px">
+      <div>
+        <label class="field-label">Планируемых подходов</label>
+        <input type="number" id="editExSetsInput" class="field-input" min="1" max="10" value="${ex.targetSets || 3}">
+      </div>
+      <div>
+        <label class="field-label">Целевые повторения</label>
+        <input type="number" id="editExRepsInput" class="field-input" min="1" max="50" value="${ex.targetReps || 10}">
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <button class="btn" onclick="saveExerciseDetails('${progId}', '${exId}')">Сохранить упражнение</button>
+      <button class="btn sm ghost" onclick="openEditProgramModal('${progId}')">Отмена</button>
+    </div>
+  `;
+  modal.classList.add('show');
+}
+
+function saveExerciseDetails(progId, exId) {
+  const prog = state.programs.find(p => p.id === progId);
+  if (!prog) return;
+  const ex = prog.exercises.find(e => e.id === exId);
+  if (!ex) return;
+
+  const newName = document.getElementById('editExNameInput').value.trim();
+  const sets = parseInt(document.getElementById('editExSetsInput').value, 10) || 3;
+  const reps = parseInt(document.getElementById('editExRepsInput').value, 10) || 10;
+
+  if (newName) ex.name = newName;
+  ex.targetSets = sets;
+  ex.targetReps = reps;
+
+  savePrograms();
+  Haptic.ok();
+  toast('Упражнение обновлено');
+  openEditProgramModal(progId);
+}
+
+function openAddExerciseToProgramModal(progId) {
+  const prog = state.programs.find(p => p.id === progId);
+  if (!prog) return;
+
+  const currentExIds = prog.exercises.map(e => e.id);
+  const known = getAllKnownExercises().filter(e => !currentExIds.includes(e.id));
+
+  sheet.innerHTML = `
+    <div class="sheet-title">
+      <span>Добавить упражнение в день</span>
+      <button class="iconbtn sm" onclick="openEditProgramModal('${progId}')">✕</button>
+    </div>
+    <div style="font-size:12px; color:var(--txt-muted); margin-bottom:14px">
+      Добавление в день: <b>${esc(prog.name)}</b> (${DAY_NAMES[prog.dayCode] || 'День'})
+    </div>
+
+    <!-- Section 1: Choose from other days & history -->
+    ${known.length ? `
+      <div class="field">
+        <label class="field-label">Упражнения из других дней и каталога (${known.length})</label>
+        <div style="display:flex; flex-direction:column; gap:6px; max-height:190px; overflow-y:auto; padding-right:2px; margin-bottom:14px">
+          ${known.map(ex => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:var(--card); border:1px solid var(--card-border); border-radius:10px">
+              <div>
+                <div style="font-size:13.5px; font-weight:600; color:var(--txt)">${esc(ex.name)}</div>
+                <div style="font-size:11.5px; color:var(--txt-dim)">Используется в: ${esc(ex.fromDay || 'База')}</div>
+              </div>
+              <button class="chip active" onclick="confirmAddKnownExerciseToProgram('${progId}', '${ex.id}', '${esc(ex.name)}', ${ex.targetSets || 3}, ${ex.targetReps || 10})">+ Добавить</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- Section 2: Create brand new exercise -->
+    <div class="field">
+      <label class="field-label">Или создать новое упражнение</label>
+      <input type="text" id="newProgramExName" class="field-input" placeholder="например: Французский жим, Тяга Т-грифа...">
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px">
+      <div>
+        <label class="field-label">Подходов</label>
+        <input type="number" id="newProgramExSets" class="field-input" min="1" max="10" value="3">
+      </div>
+      <div>
+        <label class="field-label">Повторений</label>
+        <input type="number" id="newProgramExReps" class="field-input" min="1" max="50" value="10">
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px">
+      <button class="btn" onclick="confirmCreateNewExerciseInProgram('${progId}')">Создать и добавить</button>
+      <button class="btn sm ghost" onclick="openEditProgramModal('${progId}')">Назад к программе</button>
+    </div>
+  `;
+  modal.classList.add('show');
+}
+
+function confirmAddKnownExerciseToProgram(progId, exId, exName, targetSets, targetReps) {
+  const prog = state.programs.find(p => p.id === progId);
+  if (!prog) return;
+
+  prog.exercises.push({
+    id: exId,
+    name: exName,
+    targetSets: Number(targetSets) || 3,
+    targetReps: Number(targetReps) || 10,
+    type: 'upper'
+  });
+
+  savePrograms();
+  Haptic.ok();
+  toast(`Упражнение «${exName}» добавлено!`);
+  openEditProgramModal(progId);
+}
+
+function confirmCreateNewExerciseInProgram(progId) {
+  const prog = state.programs.find(p => p.id === progId);
+  if (!prog) return;
+  const name = document.getElementById('newProgramExName').value.trim();
+  const sets = parseInt(document.getElementById('newProgramExSets').value, 10) || 3;
+  const reps = parseInt(document.getElementById('newProgramExReps').value, 10) || 10;
+  if (!name) {
+    toast('Введи название упражнения');
+    return;
   }
+
+  prog.exercises.push({
+    id: genId('ex'),
+    name,
+    targetSets: sets,
+    targetReps: reps,
+    type: 'upper'
+  });
+
+  savePrograms();
+  Haptic.ok();
+  toast(`Упражнение «${name}» создано!`);
+  openEditProgramModal(progId);
+}
+
+function openProgramRevisionModal(progId) {
+  const prog = state.programs.find(p => p.id === progId);
+  if (!prog) return;
+
+  const totalExercises = prog.exercises.length;
+  const totalSets = prog.exercises.reduce((sum, e) => sum + (Number(e.targetSets) || 3), 0);
+  const estTimeMin = Math.round(totalSets * 2.5 + 8);
+
+  let volumeStatus = 'Идеальный баланс';
+  let volumeColor = 'var(--acc-light)';
+  let volumeAdvice = 'Тренировочный объём соответствует мировым рекомендациям NSCA для гипертрофии (12–20 рабочих подходов за тренировку).';
+  if (totalSets < 8) {
+    volumeStatus = 'Низкий объём';
+    volumeColor = 'var(--warn)';
+    volumeAdvice = 'Тренировка короткая. Подходит для разгрузочной недели (Deload) или вводного режима.';
+  } else if (totalSets > 24) {
+    volumeStatus = 'Высокий объём (Риск перегрузки)';
+    volumeColor = 'var(--danger)';
+    volumeAdvice = 'Более 24 подходов за тренировку часто ведет к «пустому объёму» (junk volume) и замедлению восстановления. Рекомендуется сократить до 15-20 подходов.';
+  }
+
+  sheet.innerHTML = `
+    <div class="sheet-title">
+      <span>🔍 Ревизия: ${esc(prog.name)}</span>
+      <button class="iconbtn sm" onclick="openEditProgramModal('${progId}')">✕</button>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:14px">
+      <div class="stat-box">
+        <div class="stat-label">Упражнений</div>
+        <div class="stat-val">${totalExercises}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Всего подходов</div>
+        <div class="stat-val">${totalSets}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Примерное время</div>
+        <div class="stat-val">~${estTimeMin} <b>мин</b></div>
+      </div>
+    </div>
+
+    <div class="card coach" style="margin-bottom:14px; padding:14px">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+        <span style="font-size:12px; font-weight:700; color:${volumeColor}">● ${volumeStatus}</span>
+        <span style="font-size:11.5px; color:var(--txt-dim)">Научный аудит NSCA</span>
+      </div>
+      <div style="font-size:12px; color:var(--txt-muted); line-height:1.45">${volumeAdvice}</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Порядок выполнения упражнений (${totalExercises})</label>
+      <div style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; padding-right:4px">
+        ${prog.exercises.map((ex, i) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:var(--card); border:1px solid var(--card-border); border-radius:10px">
+            <div style="display:flex; align-items:center; gap:8px">
+              <span style="font-size:12px; font-weight:700; color:var(--acc-light)">#${i + 1}</span>
+              <span style="font-size:13.5px; font-weight:600; color:var(--txt)">${esc(ex.name)}</span>
+            </div>
+            <span style="font-size:12px; color:var(--txt-muted)">${ex.targetSets || 3} подх. × ${ex.targetReps || 10}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px">
+      <button class="btn" onclick="closeModal(); startWorkoutSession('${prog.id}')">🏋️ Начать тренировку по этому плану</button>
+      <button class="btn sm ghost" onclick="openEditProgramModal('${prog.id}')">✏️ Вернуться к редактированию</button>
+    </div>
+  `;
+  modal.classList.add('show');
 }
 
 function removeExerciseFromProgram(progId, exId) {
   const prog = state.programs.find(p => p.id === progId);
   if (prog) {
     prog.exercises = prog.exercises.filter(e => e.id !== exId);
+    savePrograms();
+    Haptic.tick();
     openEditProgramModal(progId);
   }
 }
