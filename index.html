@@ -159,6 +159,14 @@
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease !important;
   }
 
+  /* Workout Mode: Clean, focused interface without navigation clutter & ample scrolling room */
+  body.in-workout .navbar {
+    display: none !important;
+  }
+  body.in-workout #app {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 150px) !important;
+  }
+
   /* Header Top Bar */
   .header-top {
     display: flex;
@@ -510,19 +518,20 @@
   /* Rest Timer Overlay Bar */
   #rest-bar {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 74px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom) + 12px);
     z-index: 45;
     max-width: 520px;
     margin: 0 auto;
     background: rgba(12, 28, 19, 0.96);
-    border-top: 1px solid var(--card-border);
-    border-bottom: 1px solid var(--card-border);
-    backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(14px);
     padding: 10px 16px;
     transform: translateY(160%);
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
   }
   @media (min-width: 768px) {
     #rest-bar { bottom: 20px; border-radius: 14px; border: 1px solid var(--acc-dark); }
@@ -1579,6 +1588,7 @@ modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 function setView(viewName) {
   curView = viewName;
   document.body.classList.remove('keyboard-open');
+  document.body.classList.toggle('in-workout', viewName === 'workout');
   document.querySelectorAll('.nav-item').forEach(b => {
     b.classList.toggle('active', b.dataset.view === viewName);
   });
@@ -2086,11 +2096,14 @@ function renderWorkoutView() {
 
   html += `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
-      <div>
-        <h2 style="font-size:20px; font-weight:800">${esc(cur.programName || prog.name)}</h2>
-        <div style="font-size:12.5px; color:var(--txt-muted)">Сессия активна · автосохранение включено</div>
+      <div style="display:flex; align-items:center; gap:10px">
+        <button class="iconbtn sm" onclick="setView('home')" title="Свернуть тренировку" style="background:var(--card-bg-light); border-color:var(--card-border); font-size:16px">←</button>
+        <div>
+          <h2 style="font-size:19px; font-weight:800; line-height:1.2">${esc(cur.programName || prog.name)}</h2>
+          <div style="font-size:12px; color:var(--txt-muted)">Сессия активна · автосохранение</div>
+        </div>
       </div>
-      <button class="btn sm" style="width:auto" onclick="finishCurrentWorkout()">Завершить ✓</button>
+      <button class="btn sm" style="width:auto; padding:8px 14px" onclick="finishCurrentWorkout()">Завершить ✓</button>
     </div>
   `;
 
@@ -2164,7 +2177,7 @@ function renderWorkoutView() {
 
   // Action buttons
   html += `
-    <div style="margin-top:18px; display:flex; flex-direction:column; gap:10px">
+    <div style="margin-top:24px; margin-bottom:28px; display:flex; flex-direction:column; gap:12px; padding-bottom: calc(env(safe-area-inset-bottom) + 30px)">
       <button class="btn ghost sm" onclick="openAddExerciseToSessionModal()">+ Добавить упражнение в тренировку</button>
       <button class="btn" onclick="finishCurrentWorkout()">Завершить и сохранить тренировку</button>
       <button class="btn warn sm" onclick="cancelCurrentWorkout()">Отменить тренировку без сохранения</button>
@@ -3542,6 +3555,7 @@ restTime.onclick = () => {
    8. Boot
    ========================================================= */
 function render() {
+  document.body.classList.toggle('in-workout', curView === 'workout');
   if (typeof isTextInputElement === 'function' && !isTextInputElement(document.activeElement)) {
     document.body.classList.remove('keyboard-open');
   }
