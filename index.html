@@ -148,9 +148,15 @@
     }
   }
 
-  /* Hide bottom nav when virtual keyboard is active (Android & iOS input focus) */
+  /* Hide bottom nav and auto-stow rest timer when virtual keyboard is active (prevents overlapping inputs) */
   body.keyboard-open .navbar {
     display: none !important;
+  }
+  body.keyboard-open #rest-bar {
+    transform: translateY(200%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease !important;
   }
 
   /* Header Top Bar */
@@ -838,6 +844,7 @@
   <div class="rest-content">
     <div class="rest-time" id="restTime" title="Нажмите, чтобы сбросить">1:30</div>
     <div class="rest-chips" id="restChips"></div>
+    <button class="iconbtn sm" style="width:28px; height:28px; font-size:12px; margin-left:6px; opacity:0.75" onclick="clearRestTimer()" title="Закрыть таймер">✕</button>
   </div>
 </div>
 
@@ -956,17 +963,32 @@ if (WTA && WTA.BackButton) {
   });
 }
 
-// Android & iOS virtual keyboard detection: hides fixed bottom bar to prevent overlapping inputs
+// Android & iOS virtual keyboard detection: hides fixed bottom bar and auto-stows floating timer
+function isTextInputElement(el) {
+  return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'));
+}
+
 window.addEventListener('focusin', (e) => {
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+  if (isTextInputElement(e.target)) {
     document.body.classList.add('keyboard-open');
   }
 });
+
 window.addEventListener('focusout', (e) => {
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
-    document.body.classList.remove('keyboard-open');
+  if (isTextInputElement(e.target)) {
+    setTimeout(() => {
+      if (!isTextInputElement(document.activeElement)) {
+        document.body.classList.remove('keyboard-open');
+      }
+    }, 60);
   }
 });
+
+document.addEventListener('click', (e) => {
+  if (!isTextInputElement(e.target) && !isTextInputElement(document.activeElement)) {
+    document.body.classList.remove('keyboard-open');
+  }
+}, { passive: true });
 
 const Haptic = {
   ok() { if (WTA && WTA.HapticFeedback) try { WTA.HapticFeedback.notificationOccurred('success'); } catch(e){} },
@@ -1556,6 +1578,7 @@ modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
 function setView(viewName) {
   curView = viewName;
+  document.body.classList.remove('keyboard-open');
   document.querySelectorAll('.nav-item').forEach(b => {
     b.classList.toggle('active', b.dataset.view === viewName);
   });
@@ -3519,6 +3542,9 @@ restTime.onclick = () => {
    8. Boot
    ========================================================= */
 function render() {
+  if (typeof isTextInputElement === 'function' && !isTextInputElement(document.activeElement)) {
+    document.body.classList.remove('keyboard-open');
+  }
   if (curView === 'home') renderHome();
   else if (curView === 'workout') renderWorkoutView();
   else if (curView === 'programs') renderProgramsView();
