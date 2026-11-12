@@ -841,6 +841,101 @@
     color: var(--txt-dim);
     margin-top: 10px;
   }
+
+  /* Legal Consent Bottom Sheet (152-FZ) */
+  .legal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 85;
+    background: rgba(4, 9, 6, 0.65);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.28s ease, visibility 0.28s ease;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .legal-overlay.show {
+    opacity: 1;
+    visibility: visible;
+  }
+  .legal-sheet {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45);
+    padding: 16px 18px calc(env(safe-area-inset-bottom) + 16px);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+  }
+  .legal-overlay.show .legal-sheet {
+    transform: translateY(0);
+  }
+  .legal-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--card-border);
+    border-radius: 99px;
+    margin: 0 auto 12px;
+  }
+  .legal-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--txt);
+    margin-bottom: 6px;
+  }
+  .legal-desc {
+    font-size: 13px;
+    color: var(--txt-muted);
+    line-height: 1.45;
+    margin-bottom: 14px;
+  }
+  .legal-expand-link {
+    color: var(--acc-light);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .legal-details {
+    display: none;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bg-surface);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 14px;
+    font-size: 11.5px;
+    color: var(--txt-muted);
+    line-height: 1.5;
+  }
+  .legal-details.open {
+    display: block;
+  }
+  .legal-footer-link {
+    background: transparent;
+    border: none;
+    color: var(--txt-muted);
+    font-size: 11px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.15s ease, color 0.15s ease;
+    padding: 4px 8px;
+    display: inline-block;
+  }
+  .legal-footer-link:hover {
+    opacity: 1;
+    color: var(--acc-light);
+  }
+
 </style>
 </head>
 <body>
@@ -1751,6 +1846,9 @@ function renderFooterLeadBar() {
         <span style="font-size:15px">→</span>
       </a>
       <div class="footer-lead-sub">Zero-backend · Клиентское AES-256 шифрование · Telegram CloudStorage</div>
+      <div style="text-align:center; margin-top:10px">
+        <button type="button" class="legal-footer-link" onclick="openLegalPolicySheet()">Политика конфиденциальности (152-ФЗ)</button>
+      </div>
     </div>
   `;
 }
@@ -2181,6 +2279,9 @@ function renderWorkoutView() {
       <button class="btn ghost sm" onclick="openAddExerciseToSessionModal()">+ Добавить упражнение в тренировку</button>
       <button class="btn" onclick="finishCurrentWorkout()">Завершить и сохранить тренировку</button>
       <button class="btn warn sm" onclick="cancelCurrentWorkout()">Отменить тренировку без сохранения</button>
+      <div style="text-align:center; margin-top:8px">
+        <button type="button" class="legal-footer-link" onclick="openLegalPolicySheet()">Политика конфиденциальности (152-ФЗ)</button>
+      </div>
     </div>
   `;
 
@@ -3567,6 +3668,66 @@ function render() {
   else if (curView === 'history') renderHistoryView();
 }
 
+
+/* =========================================================
+   Legal Consent (152-FZ Bottom Sheet)
+   ========================================================= */
+let legalReviewMode = false;
+
+function checkLegalConsent() {
+  const accepted = localStorage.getItem('insy_legal_accepted');
+  if (!accepted) {
+    showLegalSheet(false);
+  }
+}
+
+function showLegalSheet(isReview = false) {
+  legalReviewMode = isReview;
+  const overlay = document.getElementById('legalOverlay');
+  const details = document.getElementById('legalDetails');
+  const btn = document.getElementById('legalBtn');
+  if (!overlay || !details || !btn) return;
+
+  if (isReview) {
+    details.classList.add('open');
+    btn.textContent = 'Закрыть';
+  } else {
+    details.classList.remove('open');
+    btn.textContent = 'Принять и начать';
+  }
+  overlay.classList.add('show');
+}
+
+function closeLegalSheet() {
+  const overlay = document.getElementById('legalOverlay');
+  if (overlay) overlay.classList.remove('show');
+}
+
+function handleLegalAction() {
+  if (legalReviewMode) {
+    closeLegalSheet();
+    return;
+  }
+  localStorage.setItem('insy_legal_accepted', new Date().toISOString());
+  Haptic.tick();
+  closeLegalSheet();
+}
+
+function handleLegalOverlayClick(e) {
+  if (legalReviewMode) {
+    closeLegalSheet();
+  }
+}
+
+function toggleLegalDetails() {
+  const details = document.getElementById('legalDetails');
+  if (details) details.classList.toggle('open');
+}
+
+function openLegalPolicySheet() {
+  showLegalSheet(true);
+}
+
 async function boot() {
   try {
     await Storage.initIdentity();
@@ -3629,9 +3790,33 @@ async function boot() {
   curView = state.active ? 'workout' : 'home';
   buildRestPresetChips();
   render();
+  checkLegalConsent();
 }
 
 boot();
 </script>
+
+<!-- Legal Consent Bottom Sheet (152-FZ) -->
+<div class="legal-overlay" id="legalOverlay" onclick="handleLegalOverlayClick(event)">
+  <div class="legal-sheet" id="legalSheet" onclick="event.stopPropagation()">
+    <div class="legal-handle"></div>
+    <div class="legal-title">Конфиденциальность данных</div>
+    <div class="legal-desc">
+      Мы уважаем Вашу приватность: история весов и тренировок хранится только на Вашем устройстве и в Telegram Cloud. Продолжая, Вы принимаете <span class="legal-expand-link" onclick="toggleLegalDetails()">условия использования</span>.
+    </div>
+    <div class="legal-details" id="legalDetails">
+      <div style="font-weight:700; color:var(--txt); margin-bottom:6px">Политика конфиденциальности (152-ФЗ РФ)</div>
+      <p style="margin-bottom:8px">1. <b>Zero-Backend:</b> Приложение не имеет собственных баз данных. Все веса, упражнения и подходы хранятся исключительно в памяти Вашего устройства (localStorage) и в Вашем личном облачном хранилище Telegram CloudStorage.</p>
+      <p style="margin-bottom:8px">2. <b>Конфиденциальность:</b> Мы не запрашиваем и не храним ФИО, номера телефонов, пароли или банковские карты. Все токены и идентификаторы шифруются клиентскими алгоритмами SHA-256 и AES-GCM.</p>
+      <p style="margin-bottom:8px">3. <b>Передача третьим лицам:</b> Ваши данные никогда не передаются и не продаются третьим лицам или рекламным сетям.</p>
+      <p style="margin-bottom:8px">4. <b>Управление данными:</b> Вы можете в любой момент выгрузить историю тренировок в CSV (Excel) или стереть все данные, очистив кэш приложения.</p>
+      <p style="margin-top:6px; font-size:10.5px; opacity:0.8">Оператор данных: [Укажите ФИО / Контакт]</p>
+    </div>
+    <button class="btn" id="legalBtn" style="height:44px; padding:0 18px; font-size:14px; box-shadow:none" onclick="handleLegalAction()">
+      Принять и начать
+    </button>
+  </div>
+</div>
+
 </body>
 </html>
